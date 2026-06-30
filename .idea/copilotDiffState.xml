@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CopilotDiffPersistence">
+    <option name="pendingDiffs">
+      <map>
+        <entry key="$PROJECT_DIR$/src/test/java/com/jerry/TestRunner.java">
+          <value>
+            <PendingDiffInfo>
+              <option name="filePath" value="$PROJECT_DIR$/src/test/java/com/jerry/TestRunner.java" />
+              <option name="originalContent" value="package com.jerry;&#10;&#10;import org.junit.runner.RunWith;&#10;import io.cucumber.junit.Cucumber;&#10;import io.cucumber.junit.CucumberOptions;&#10;&#10;@RunWith(Cucumber.class)&#10;@CucumberOptions(&#10;    features = &quot;src/test/resources/features&quot;,&#10;    glue = &quot;com.jerry.stepDefinitions&quot;,&#10;    plugin = { &quot;pretty&quot;, &quot;json:target/cucumber.json&quot; },&#10;    monochrome = true&#10;)&#10;public class TestRunner {&#10;    // 只需要空的 class 與正確的匯入與註解&#10;}" />
+              <option name="updatedContent" value="package com.jerry;&#13;&#10;&#13;&#10;import org.junit.runner.RunWith;&#13;&#10;import io.cucumber.junit.Cucumber;&#13;&#10;import io.cucumber.junit.CucumberOptions;&#13;&#10;&#13;&#10;@RunWith(Cucumber.class)&#13;&#10;@CucumberOptions(&#13;&#10;    features = &quot;src/test/resources/features&quot;,&#13;&#10;    glue = &quot;com.jerry.stepDefinitions&quot;,&#13;&#10;    plugin = { &quot;pretty&quot;, &quot;json:target/cucumber.json&quot; },&#13;&#10;    monochrome = true&#13;&#10;)&#13;&#10;public class TestRunner {&#13;&#10;    // 只需要空的 class 與正確的匯入與註解&#13;&#10;}" />
+            </PendingDiffInfo>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+</project>
