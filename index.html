@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>手動測試 VS AI 自動化測試對決</title>
+<style>
+  :root{
+    --bg:#0a0e17;
+    --panel:#0d1220;
+    --panel2:#111827;
+    --line:#1e2a3f;
+    --txt:#e2e8f0;
+    --dim:#64748b;
+    --orange:#ff6c37;
+    --cyan:#22d3ee;
+    --violet:#a78bfa;
+    --green:#4ade80;
+    --red:#f87171;
+    --yellow:#facc15;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    background:var(--bg);
+    color:var(--txt);
+    font-family:"Segoe UI","Microsoft JhengHei",system-ui,sans-serif;
+    overflow:hidden;
+  }
+  body::before{ /* 背景微光網格 */
+    content:"";position:fixed;inset:0;pointer-events:none;
+    background:
+      radial-gradient(ellipse 60% 50% at 15% 0%,rgba(255,108,55,.08),transparent 60%),
+      radial-gradient(ellipse 60% 50% at 85% 0%,rgba(34,211,238,.08),transparent 60%),
+      linear-gradient(rgba(30,42,63,.25) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(30,42,63,.25) 1px,transparent 1px);
+    background-size:100% 100%,100% 100%,48px 48px,48px 48px;
+  }
+  .mono{font-family:"Cascadia Code",Consolas,"Courier New",monospace}
+
+  /* ===================== 開場 VS 動畫 ===================== */
+  #intro{
+    position:fixed;inset:0;z-index:100;display:flex;cursor:pointer;
+    transition:opacity .6s ease;
+  }
+  #intro.hide{opacity:0;pointer-events:none}
+  .intro-half{
+    flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:1.2vw;
+    animation-duration:.7s;animation-fill-mode:both;animation-timing-function:cubic-bezier(.2,.9,.3,1.2);
+  }
+  .intro-half.l{background:linear-gradient(135deg,#1a0e08 0%,#2a130a 60%,#0a0e17 100%);animation-name:slideL}
+  .intro-half.r{background:linear-gradient(225deg,#08131a 0%,#0a1a2a 60%,#0a0e17 100%);animation-name:slideR;animation-delay:.15s}
+  @keyframes slideL{from{transform:translateX(-100%)}to{transform:translateX(0)}}
+  @keyframes slideR{from{transform:translateX(100%)}to{transform:translateX(0)}}
+  .intro-emoji{font-size:6vw;filter:drop-shadow(0 0 24px rgba(255,255,255,.25));animation:bob 2.2s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+  .intro-title{font-size:2.6vw;font-weight:800;letter-spacing:.15em}
+  .intro-half.l .intro-title{color:var(--orange);text-shadow:0 0 30px rgba(255,108,55,.6)}
+  .intro-half.r .intro-title{color:var(--cyan);text-shadow:0 0 30px rgba(34,211,238,.6)}
+  .intro-sub{font-size:1.3vw;color:var(--dim);letter-spacing:.3em}
+  #vs{
+    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    font-size:11vw;font-weight:900;font-style:italic;color:#fff;
+    text-shadow:0 0 20px #fff,0 0 60px var(--violet),0 0 120px var(--cyan);
+    animation:vsIn .55s cubic-bezier(.1,1.4,.3,1) .8s both,vsShake .12s linear 1.35s 4;
+  }
+  @keyframes vsIn{from{transform:translate(-50%,-50%) scale(6);opacity:0}to{transform:translate(-50%,-50%) scale(1);opacity:1}}
+  @keyframes vsShake{
+    0%{transform:translate(-50%,-50%) translate(4px,-3px)}
+    25%{transform:translate(-50%,-50%) translate(-4px,3px)}
+    50%{transform:translate(-50%,-50%) translate(3px,4px)}
+    100%{transform:translate(-50%,-50%) translate(0,0)}
+  }
+  #flash{position:absolute;inset:0;background:#fff;opacity:0;animation:flash .5s ease .82s}
+  @keyframes flash{0%{opacity:.9}100%{opacity:0}}
+  .intro-skip{position:absolute;bottom:3vh;left:50%;transform:translateX(-50%);color:var(--dim);font-size:.9vw;letter-spacing:.2em}
+
+  /* ===================== 主舞台 ===================== */
+  #stage{display:flex;flex-direction:column;height:100vh;padding:1.2vh 1.2vw;gap:1vh;position:relative}
+  header{display:flex;align-items:center;justify-content:center;gap:1.4vw;padding:.4vh 0 3vh;position:relative}
+  header .h-side{font-size:1.5vw;font-weight:800;letter-spacing:.08em}
+  header .h-side.l{color:var(--orange)}
+  header .h-side.r{color:var(--cyan)}
+  header .h-vs{
+    font-size:2vw;font-weight:900;font-style:italic;color:#fff;
+    text-shadow:0 0 16px var(--violet);
+  }
+  .panels{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:1.2vw;min-height:0}
+
+  .panel{
+    display:flex;flex-direction:column;min-height:0;position:relative;
+    background:var(--panel);border-radius:14px;overflow:hidden;
+    border:1px solid var(--line);
+  }
+  .panel.left{box-shadow:0 0 0 1px rgba(255,108,55,.35),0 0 40px rgba(255,108,55,.12)}
+  .panel.right{box-shadow:0 0 0 1px rgba(34,211,238,.35),0 0 40px rgba(34,211,238,.12)}
+  .panel.right.done{box-shadow:0 0 0 2px rgba(74,222,128,.7),0 0 60px rgba(74,222,128,.35);transition:box-shadow .5s}
+
+  /* 視窗框 + REC */
+  .chrome{
+    display:flex;align-items:center;gap:.6vw;padding:.9vh 1vw;
+    background:var(--panel2);border-bottom:1px solid var(--line);flex:none;
+  }
+  .dots{display:flex;gap:.4vw}
+  .dot{width:.7vw;height:.7vw;border-radius:50%}
+  .dot.r{background:#ff5f57}.dot.y{background:#febc2e}.dot.g{background:#28c840}
+  .chrome-title{flex:1;text-align:center;font-size:.95vw;color:var(--dim);font-weight:600}
+  /* 耗時計時器:整場對決比的就是時間,放大成焦點 */
+  .rec{
+    display:flex;align-items:center;gap:.5vw;font-weight:700;color:var(--red);
+    background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.4);
+    border-radius:10px;padding:.5vh .8vw;
+  }
+  .rec .rlabel{font-size:.8vw;color:#fca5a5;letter-spacing:.1em}
+  .rec .rtime{font-size:1.7vw;font-weight:900;line-height:1;letter-spacing:.04em;
+    text-shadow:0 0 16px rgba(248,113,113,.5)}
+  .rec .rdot{width:.6vw;height:.6vw;border-radius:50%;background:var(--red);animation:blink 1s steps(2) infinite}
+  .rec.stopped .rdot{animation:none;background:var(--green)}
+  .rec.stopped{color:var(--green);background:rgba(74,222,128,.1);border-color:rgba(74,222,128,.5)}
+  .rec.stopped .rlabel{color:#86efac}
+  .rec.stopped .rtime{text-shadow:0 0 16px rgba(74,222,128,.6)}
+  /* 左側時間到:停止閃爍但保持紅色警示,不能看起來像完成 */
+  .rec.timeup{color:var(--red);background:rgba(248,113,113,.14);border-color:rgba(248,113,113,.55)}
+  .rec.timeup .rlabel{color:#fca5a5}
+  .rec.timeup .rtime{text-shadow:0 0 16px rgba(248,113,113,.6)}
+  .rec.timeup .rdot{animation:none;background:var(--red)}
+  @keyframes blink{50%{opacity:.15}}
+  header .h-sub{
+    position:absolute;left:50%;transform:translateX(-50%);bottom:.2vh;
+    font-size:.9vw;color:var(--dim);letter-spacing:.08em;white-space:nowrap;
+  }
+  #bgmBtn{
+    position:fixed;top:1.4vh;right:1vw;z-index:70;cursor:pointer;font-family:inherit;
+    background:rgba(17,24,39,.85);border:1px solid var(--line);border-radius:99px;
+    padding:.7vh 1vw;font-size:.9vw;color:var(--txt);display:flex;gap:.4vw;align-items:center;
+  }
+  #bgmBtn.off{opacity:.45}
+  #bgmBtn.hidden{display:none}
+
+  .body-area{flex:1;min-height:0;position:relative;overflow:hidden}
+
+  /* 底部進度列 */
+  .pfoot{
+    flex:none;display:flex;align-items:center;gap:1vw;
+    padding:1vh 1.2vw;background:var(--panel2);border-top:1px solid var(--line);
+    font-size:1vw;font-weight:700;
+  }
+  .pbar{flex:1;height:.9vh;background:#1c2740;border-radius:99px;overflow:hidden}
+  .pbar>i{display:block;height:100%;width:0%;border-radius:99px;transition:width .5s ease}
+  .panel.left .pbar>i{background:linear-gradient(90deg,#b3431c,var(--orange))}
+  .panel.right .pbar>i{background:linear-gradient(90deg,#0e7490,var(--cyan),var(--green))}
+  .pfoot .plabel{min-width:9vw;text-align:right}
+  .panel.left .plabel{color:var(--orange)}
+  .panel.right .plabel{color:var(--cyan)}
+  .pfoot .pstatus{color:var(--dim);font-weight:500;font-size:.9vw}
+
+  /* ===================== 左：Postman ===================== */
+  .pm{display:flex;height:100%;font-size:.85vw}
+  .pm-side{
+    width:26%;flex:none;background:#0b101c;border-right:1px solid var(--line);
+    padding:.8vh .6vw;overflow:hidden;
+  }
+  .pm-side h4{font-size:.85vw;color:var(--dim);margin-bottom:.8vh;letter-spacing:.05em}
+  .pm-item{
+    display:flex;align-items:center;gap:.4vw;padding:.55vh .5vw;border-radius:6px;
+    color:#94a3b8;white-space:nowrap;overflow:hidden;font-size:.8vw;
+  }
+  .pm-item .m{font-weight:800;font-size:.65vw;width:2.6vw;flex:none}
+  .m.GET{color:var(--green)}.m.POST{color:var(--yellow)}.m.PUT{color:#60a5fa}.m.DELETE{color:var(--red)}
+  .pm-item.active{background:rgba(255,108,55,.18);color:#fff}
+  .pm-item .chk{margin-left:auto;color:var(--green);opacity:0;font-weight:900}
+  .pm-item.tested .chk{opacity:1}
+  .pm-main{flex:1;display:flex;flex-direction:column;min-width:0}
+  .pm-reqtab{
+    padding:.7vh 1vw;border-bottom:1px solid var(--line);color:var(--dim);
+    font-size:.8vw;display:flex;gap:.5vw;align-items:center;
+  }
+  .pm-reqtab b{color:var(--txt)}
+  .pm-urlrow{display:flex;gap:.5vw;padding:.9vh 1vw;border-bottom:1px solid var(--line);align-items:stretch}
+  .pm-method{
+    background:#16203a;border:1px solid var(--line);border-radius:6px;
+    padding:.6vh .7vw;font-weight:800;font-size:.8vw;flex:none;min-width:4vw;text-align:center;
+  }
+  .pm-urlbox{
+    flex:1;background:#16203a;border:1px solid var(--line);border-radius:6px;
+    padding:.6vh .7vw;font-size:.85vw;color:#cbd5e1;overflow:hidden;white-space:nowrap;
+  }
+  .pm-send{
+    background:var(--orange);color:#fff;font-weight:800;border-radius:6px;
+    padding:.6vh 1.4vw;font-size:.85vw;flex:none;display:flex;align-items:center;gap:.4vw;
+    transition:transform .1s,filter .1s;
+  }
+  .pm-send.pressed{transform:scale(.92);filter:brightness(1.4)}
+  .pm-subtabs{display:flex;gap:1.4vw;padding:.7vh 1vw;border-bottom:1px solid var(--line);font-size:.8vw;color:var(--dim)}
+  .pm-subtabs span{padding-bottom:.3vh;border-bottom:2px solid transparent}
+  .pm-subtabs span.on{color:var(--orange);border-color:var(--orange);font-weight:700}
+  .pm-editor{
+    height:30%;flex:none;padding:.8vh 1vw;overflow:hidden;font-size:.8vw;
+    border-bottom:1px solid var(--line);
+  }
+  .kv{display:flex;gap:.6vw;padding:.35vh 0;color:#cbd5e1}
+  .kv .k{color:var(--cyan);min-width:9vw}
+  .pm-resp{flex:1;min-height:0;display:flex;flex-direction:column}
+  .pm-resp-head{
+    display:flex;gap:1vw;align-items:center;padding:.6vh 1vw;font-size:.8vw;color:var(--dim);
+    border-bottom:1px solid var(--line);
+  }
+  .status-badge{color:var(--green);font-weight:800;opacity:0}
+  .status-badge.show{opacity:1}
+  .pm-resp-body{flex:1;overflow:hidden;padding:.6vh 1vw;font-size:.78vw;line-height:1.55}
+  .spinner{
+    display:none;width:1.1vw;height:1.1vw;border:3px solid #33415c;border-top-color:var(--orange);
+    border-radius:50%;animation:spin .7s linear infinite;margin:2vh auto;
+  }
+  .spinner.show{display:block}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .j-k{color:#7dd3fc}.j-s{color:#86efac}.j-n{color:#fca5a5}.j-p{color:#64748b}
+  .code-line{white-space:pre;color:#cbd5e1}
+  .code-line .fn{color:var(--violet)}.code-line .str{color:#86efac}
+
+  /* 截圖閃光 + 標籤 */
+  .shot-flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:30}
+  .shot-flash.go{animation:shotFlash .5s ease}
+  @keyframes shotFlash{0%{opacity:.92}100%{opacity:0}}
+  .shot-tag{
+    position:absolute;top:7%;left:50%;transform:translateX(-50%);z-index:31;white-space:nowrap;
+    background:rgba(10,14,23,.85);border:1px solid var(--yellow);color:var(--yellow);
+    padding:.6vh 1.2vw;border-radius:99px;font-size:.95vw;font-weight:800;opacity:0;transition:opacity .3s;
+  }
+  .shot-tag.show{opacity:1}
+
+  /* Excel 視窗(人工貼測試結果) */
+  .xls{
+    position:absolute;left:3%;right:3%;top:5%;bottom:5%;z-index:20;display:flex;flex-direction:column;
+    background:#f3f5f4;border-radius:10px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.65);
+    transform:translateY(115%);transition:transform .5s cubic-bezier(.2,.9,.3,1);
+  }
+  .xls.show{transform:none}
+  .xls-bar{background:#107c41;color:#fff;font-size:.85vw;font-weight:700;padding:.7vh 1vw;display:flex;justify-content:space-between}
+  .xls-tool{background:#f9faf9;color:#555;font-size:.72vw;padding:.5vh 1vw;border-bottom:1px solid #d9dcd9;display:flex;gap:1.2vw}
+  .xls-grid{flex:1;overflow:hidden;background:#fff}
+  .xls table{border-collapse:collapse;width:100%;font-size:.8vw;color:#1f2937;table-layout:fixed}
+  .xls th{background:#eef1ee;color:#666;font-weight:700;border:1px solid #d5d9d5;padding:.35vh .4vw;font-size:.7vw;width:auto}
+  .xls th.rn{width:2vw}
+  .xls td{border:1px solid #e2e6e2;padding:.45vh .5vw;height:3.4vh;color:#1f2937;overflow:hidden;white-space:nowrap}
+  .xls td.hd{background:#e7f0e9;font-weight:800;color:#0b6b35}
+  .xls td.pass{color:#0a7d3c;font-weight:800}
+  .xls td.sel{outline:2px solid #107c41;outline-offset:-2px;background:#f0f9f3}
+  .xls .caret::after{color:#107c41}
+
+  /* Cucumber HTML 報告視窗(右側) */
+  .report-win{
+    position:absolute;left:3%;right:3%;top:5%;bottom:5%;z-index:15;display:flex;flex-direction:column;
+    background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.7);
+    transform:translateY(115%);transition:transform .55s cubic-bezier(.2,.9,.3,1);
+  }
+  .report-win.show{transform:none}
+  .rw-chrome{display:flex;align-items:center;gap:.6vw;background:#e8eaed;padding:.7vh 1vw;flex:none}
+  .rw-url{flex:1;background:#fff;border-radius:99px;padding:.45vh 1vw;font-size:.8vw;color:#333}
+  .rw-body{flex:1;overflow:hidden;padding:1.6vh 1.4vw;color:#1f2937;background:#fafcfa}
+  .rw-head{display:flex;align-items:center;gap:.7vw;margin-bottom:1.2vh}
+  .rw-head .cuke{font-size:1.6vw}
+  .rw-head h2{font-size:1.25vw;color:#14532d}
+  .rw-head .rw-time{margin-left:auto;font-size:.78vw;color:#6b7280}
+  /* cucumber-reporting 經典樣式:Steps 圓環 + 彩色統計表 */
+  .rw-donut{display:flex;flex-direction:column;align-items:center;margin-bottom:.8vh}
+  .rw-donut h4{font-size:.95vw;color:#6b7280;letter-spacing:.05em;margin-bottom:.4vh}
+  .rw-donut svg{width:8.5vw;height:8.5vw}
+  .rw-donut .dring{
+    fill:none;stroke:#1ea62b;stroke-width:22;stroke-dasharray:0 100;
+    transition:stroke-dasharray 1.2s ease .3s;
+  }
+  .report-win.show .rw-donut .dring{stroke-dasharray:100 100}
+  .rw-donut .dlabel{font-size:11px;font-weight:800;fill:#1ea62b}
+  .rw-table{width:100%;border-collapse:collapse;font-size:.68vw;color:#1f2937}
+  .rw-table th,.rw-table td{border:1px solid #c9ced4;padding:.32vh .35vw;text-align:center}
+  .rw-table .h-blue{background:#72c5e8;color:#111;font-size:.75vw;font-weight:800}
+  .rw-table .h-pass{background:#92d38b}
+  .rw-table .h-fail{background:#e59090}
+  .rw-table .h-skip{background:#94aded}
+  .rw-table .h-pend{background:#f1ec91}
+  .rw-table .h-undf{background:#efb96e}
+  .rw-table .h-gray{background:#d9d9d9}
+  .rw-table td.c-pass{background:#b9e3b4;font-weight:700}
+  .rw-table td.c-status{background:#b9e3b4;color:#14532d;font-weight:800}
+  .rw-table td.fname{color:#2563eb;text-align:left;padding-left:.6vw}
+  .rw-table tr.total td{background:#e5e7eb;font-weight:800}
+  .rw-table tr.pct td{background:#f3f4f6;color:#374151;font-weight:700}
+
+  /* 模擬滑鼠游標 */
+  #cursor{
+    position:absolute;z-index:40;width:1.4vw;height:1.4vw;left:40%;top:40%;
+    transition:left .55s cubic-bezier(.3,.7,.4,1),top .55s cubic-bezier(.3,.7,.4,1);
+    filter:drop-shadow(0 2px 6px rgba(0,0,0,.8));pointer-events:none;
+  }
+  #cursor svg{width:100%;height:100%}
+  #cursor .ripple{
+    position:absolute;left:0;top:0;width:1.4vw;height:1.4vw;border-radius:50%;
+    border:2px solid var(--orange);opacity:0;transform:scale(.3);
+  }
+  #cursor.click .ripple{animation:rip .45s ease-out}
+  @keyframes rip{0%{opacity:1;transform:scale(.3)}100%{opacity:0;transform:scale(2.4)}}
+
+  /* 打字插入符 */
+  .caret::after{content:"▍";color:var(--orange);animation:blink .8s steps(2) infinite}
+
+  /* ===================== 右：終端機 ===================== */
+  .term{
+    height:100%;padding:1.2vh 1.2vw;overflow:hidden;font-size:.92vw;line-height:1.6;
+    background:linear-gradient(180deg,#0a0f1a,#0b1322);
+  }
+  .term .ln{white-space:pre-wrap;word-break:break-all}
+  .t-prompt{color:var(--cyan);font-weight:700}
+  .t-cmd{color:#fff}
+  .t-dim{color:var(--dim)}
+  .t-ok{color:var(--green)}
+  .t-warn{color:var(--yellow)}
+  .t-ai{color:var(--violet)}
+  .t-file{color:var(--cyan);font-weight:700}
+  .g-kw{color:var(--violet);font-weight:700}
+  .g-step{color:#7dd3fc}
+  .g-str{color:#86efac}
+  .g-cmt{color:#475569}
+  .tcaret::after{content:"▉";color:var(--cyan);animation:blink .7s steps(2) infinite}
+  .think{display:inline-block;animation:pulse 1s ease-in-out infinite}
+  @keyframes pulse{50%{opacity:.35}}
+  /* Multi-Agent 徽章 */
+  .agchip{
+    display:inline-block;border:1px solid;border-radius:99px;
+    padding:.1vh .55vw;font-size:.75vw;font-weight:800;letter-spacing:.05em;
+    margin-right:.3vw;vertical-align:middle;
+  }
+  .ag1{color:var(--violet);border-color:rgba(167,139,250,.55);background:rgba(167,139,250,.1)}
+  .ag2{color:var(--cyan);border-color:rgba(34,211,238,.55);background:rgba(34,211,238,.1)}
+  .ag3{color:var(--yellow);border-color:rgba(250,204,21,.55);background:rgba(250,204,21,.08)}
+  .ag4{color:var(--green);border-color:rgba(74,222,128,.55);background:rgba(74,222,128,.1)}
+  /* 測案類型小標籤 */
+  .sctag{
+    display:inline-block;border-radius:4px;padding:0 .4vw;font-size:.7vw;font-weight:800;
+    vertical-align:middle;margin-right:.2vw;
+  }
+  .sctag.pos{background:rgba(74,222,128,.15);color:var(--green)}
+  .sctag.neg{background:rgba(250,204,21,.15);color:var(--yellow)}
+  .sctag.edge{background:rgba(167,139,250,.18);color:var(--violet)}
+
+  /* 報告摘要卡 */
+  .report-card{
+    margin:.8vh 0;border:1px solid rgba(74,222,128,.5);border-radius:10px;
+    background:rgba(74,222,128,.07);padding:1vh 1vw;
+    animation:cardIn .5s cubic-bezier(.2,1.2,.3,1) both;
+  }
+  @keyframes cardIn{from{transform:translateY(14px) scale(.95);opacity:0}to{transform:none;opacity:1}}
+  .report-card h3{color:var(--green);font-size:1vw;margin-bottom:.6vh}
+  .report-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.5vw;text-align:center}
+  .report-grid .cell b{display:block;font-size:1.6vw;color:#fff}
+  .report-grid .cell span{font-size:.75vw;color:var(--dim)}
+  .report-grid .cell.ok b{color:var(--green);text-shadow:0 0 14px rgba(74,222,128,.5)}
+
+  /* 完成徽章（蓋章動畫） */
+  .done-badge{
+    position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);z-index:20;
+    text-align:center;pointer-events:none;opacity:0;
+  }
+  .done-badge.show{animation:stamp .5s cubic-bezier(.1,1.5,.3,1) both}
+  @keyframes stamp{
+    0%{opacity:0;transform:translate(-50%,-50%) scale(3.2) rotate(-18deg)}
+    100%{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(-6deg)}
+  }
+  .done-badge .ring{
+    border:.35vw solid var(--green);border-radius:16px;padding:1.6vh 2.4vw;
+    color:var(--green);font-weight:900;font-size:2.4vw;letter-spacing:.1em;
+    text-shadow:0 0 24px rgba(74,222,128,.8);
+    box-shadow:0 0 40px rgba(74,222,128,.45),inset 0 0 30px rgba(74,222,128,.15);
+    background:rgba(10,20,14,.75);backdrop-filter:blur(3px);
+  }
+  .done-badge .sub{margin-top:1vh;font-size:1.1vw;color:#bbf7d0;font-weight:700;text-shadow:0 0 10px rgba(0,0,0,.9)}
+
+  /* 結果標籤 */
+  .verdict{
+    position:absolute;top:14%;left:50%;transform:translateX(-50%) scale(0);z-index:25;
+    padding:1vh 2vw;border-radius:99px;font-size:1.6vw;font-weight:900;letter-spacing:.08em;
+    white-space:nowrap;
+  }
+  .verdict.show{animation:verd .45s cubic-bezier(.2,1.5,.4,1) both}
+  @keyframes verd{from{transform:translateX(-50%) scale(0)}to{transform:translateX(-50%) scale(1)}}
+  .verdict.lose{background:rgba(120,20,20,.85);color:#fecaca;border:2px solid var(--red);box-shadow:0 0 30px rgba(248,113,113,.4)}
+  .verdict.win{background:rgba(10,60,30,.9);color:#bbf7d0;border:2px solid var(--green);box-shadow:0 0 40px rgba(74,222,128,.6)}
+
+  /* 開始 / 重播 覆蓋層 */
+  #overlay{
+    position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;gap:2.5vh;
+    align-items:center;justify-content:center;background:rgba(6,9,16,.72);backdrop-filter:blur(4px);
+    opacity:0;pointer-events:none;transition:opacity .4s;
+  }
+  #overlay.show{opacity:1;pointer-events:auto}
+  #overlay.end{ /* 結尾模式：不遮擋畫面，讓觀眾看清兩邊對比 */
+    background:transparent;backdrop-filter:none;pointer-events:none;
+    justify-content:flex-end;padding-bottom:5vh;gap:1.2vh;
+  }
+  #overlay.end h2{font-size:1.8vw;text-shadow:0 2px 8px #000,0 0 30px rgba(167,139,250,.8)}
+  #overlay.end #bigBtn{font-size:1.3vw;padding:1.4vh 3vw;pointer-events:auto}
+  #overlay.end .hint{display:none}
+  #overlay h2{font-size:2.4vw;font-weight:800;letter-spacing:.1em;text-shadow:0 0 30px rgba(167,139,250,.6)}
+  #bigBtn{
+    font-size:2vw;font-weight:900;letter-spacing:.15em;color:#fff;cursor:pointer;
+    padding:2.2vh 4.5vw;border:none;border-radius:99px;font-family:inherit;
+    background:linear-gradient(90deg,var(--orange),var(--violet),var(--cyan));
+    background-size:200% 100%;animation:grad 3s linear infinite;
+    box-shadow:0 0 40px rgba(167,139,250,.5),0 0 80px rgba(34,211,238,.3);
+    transition:transform .15s;
+  }
+  #bigBtn:hover{transform:scale(1.07)}
+  @keyframes grad{to{background-position:200% 0}}
+  #overlay .hint{color:var(--dim);font-size:1vw;letter-spacing:.2em}
+
+  footer{flex:none;text-align:center;color:#334155;font-size:.8vw;letter-spacing:.15em;padding:.2vh 0}
+</style>
+</head>
+<body>
+
+<!-- ============ 開場 VS 動畫 ============ -->
+<div id="intro">
+  <div class="intro-half l">
+    <div class="intro-emoji">👨‍💻</div>
+    <div class="intro-title">傳統手動測試</div>
+    <div class="intro-sub">POSTMAN · 一條一條慢慢點</div>
+  </div>
+  <div class="intro-half r">
+    <div class="intro-emoji">🤖</div>
+    <div class="intro-title">AI 自動化測試</div>
+    <div class="intro-sub">COPILOT CLI × CUCUMBER</div>
+  </div>
+  <div id="vs">VS</div>
+  <div id="flash"></div>
+  <div class="intro-skip">點擊任意處跳過</div>
+</div>
+
+<!-- ============ 主舞台 ============ -->
+<div id="stage">
+  <header>
+    <span class="h-side l">👨‍💻 Postman 手動測試</span>
+    <span class="h-vs">VS</span>
+    <span class="h-side r">🤖 Copilot CLI × Cucumber</span>
+    <div class="h-sub">⏱ 比的就是「花費時間」— 台幣開戶的測試案例：想案例、打交易、截圖、出報告，要花多久？</div>
+  </header>
+
+  <div class="panels">
+    <!-- 左：Postman -->
+    <section class="panel left" id="panelL">
+      <div class="chrome">
+        <div class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+        <div class="chrome-title">Postman — 手動 API 測試</div>
+        <div class="rec" id="recL"><span class="rdot"></span><span class="rlabel">耗時</span><span class="rtime mono">00:00</span></div>
+      </div>
+      <div class="body-area">
+        <div class="pm">
+          <div class="pm-side">
+            <h4>🏦 台幣開戶流程 API (8)</h4>
+            <div id="pmList"></div>
+          </div>
+          <div class="pm-main">
+            <div class="pm-reqtab">📄 <b id="pmReqName">尚未選擇請求</b></div>
+            <div class="pm-urlrow">
+              <div class="pm-method mono" id="pmMethod">GET</div>
+              <div class="pm-urlbox mono" id="pmUrl"></div>
+              <div class="pm-send" id="pmSend">Send</div>
+            </div>
+            <div class="pm-subtabs" id="pmSubtabs">
+              <span>Params</span><span>Authorization</span><span data-tab="headers">Headers</span><span>Body</span><span data-tab="tests">Tests</span>
+            </div>
+            <div class="pm-editor mono" id="pmEditor"></div>
+            <div class="pm-resp">
+              <div class="pm-resp-head">
+                Response
+                <span class="status-badge" id="pmStatus">200 OK</span>
+                <span id="pmTime"></span>
+              </div>
+              <div class="pm-resp-body mono" id="pmResp"><div class="spinner" id="pmSpin"></div><div id="pmJson"></div></div>
+            </div>
+          </div>
+          <div id="cursor">
+            <svg viewBox="0 0 24 24"><path fill="#fff" stroke="#000" stroke-width="1.2" d="M5 2 L5 19 L9.5 15.5 L12.5 22 L15.5 20.5 L12.5 14 L19 13.5 Z"/></svg>
+            <span class="ripple"></span>
+          </div>
+        </div>
+        <div class="shot-flash" id="shotFlash"></div>
+        <div class="shot-tag" id="shotTag">📸 手動擷取畫面 screenshot_01.png</div>
+        <div class="xls" id="xls">
+          <div class="xls-bar"><span>📗 台幣開戶_測試結果紀錄.xlsx — Excel</span><span>✕</span></div>
+          <div class="xls-tool"><span>常用</span><span>插入</span><span>版面配置</span><span>公式</span><span>資料</span><span>校閱</span><span>檢視</span></div>
+          <div class="xls-grid"><table id="xlsTable"></table></div>
+        </div>
+        <div class="verdict lose" id="verdictL">❌ 只完成 2 / 20 條，邊界案例想得不全</div>
+      </div>
+      <div class="pfoot">
+        <span class="pstatus" id="pmStatusText">等待開始…</span>
+        <div class="pbar"><i id="pmBar"></i></div>
+        <span class="plabel" id="pmLabel">0 / 20 條案例</span>
+      </div>
+    </section>
+
+    <!-- 右：Copilot CLI 終端機 -->
+    <section class="panel right" id="panelR">
+      <div class="chrome">
+        <div class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+        <div class="chrome-title">Terminal — GitHub Copilot CLI</div>
+        <div class="rec" id="recR"><span class="rdot"></span><span class="rlabel">耗時</span><span class="rtime mono">00:00</span></div>
+      </div>
+      <div class="body-area">
+        <div class="term mono" id="term"></div>
+        <div class="report-win" id="reportWin">
+          <div class="rw-chrome">
+            <div class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+            <div class="rw-url">🔒 file:///C:/demo/reports/cucumber-report.html</div>
+          </div>
+          <div class="rw-body">
+            <div class="rw-head"><span class="cuke">🥒</span><h2>Cucumber Report — 台幣開戶流程</h2><span class="rw-time" id="rwTime"></span></div>
+            <div class="rw-donut">
+              <h4>Steps</h4>
+              <svg viewBox="0 0 100 100">
+                <circle class="dring" cx="50" cy="50" r="36" pathLength="100" transform="rotate(-90 50 50)"/>
+                <text class="dlabel" x="50" y="54" text-anchor="middle">100%</text>
+              </svg>
+            </div>
+            <table class="rw-table">
+              <tr>
+                <th class="h-blue" rowspan="2">Feature</th>
+                <th class="h-blue" colspan="6">Steps</th>
+                <th class="h-blue" colspan="3">Scenarios</th>
+                <th class="h-blue" colspan="2">Features</th>
+              </tr>
+              <tr>
+                <th class="h-pass">Passed</th><th class="h-fail">Failed</th><th class="h-skip">Skipped</th>
+                <th class="h-pend">Pending</th><th class="h-undf">Undefined</th><th class="h-gray">Total</th>
+                <th class="h-pass">Passed</th><th class="h-fail">Failed</th><th class="h-gray">Total</th>
+                <th class="h-gray">Duration</th><th class="h-gray">Status</th>
+              </tr>
+              <tr><td class="fname">台幣開戶_證件拍攝</td><td class="c-pass">24</td><td>0</td><td>0</td><td>0</td><td>0</td><td>24</td><td class="c-pass">6</td><td>0</td><td>6</td><td>0s 812ms</td><td class="c-status">Passed</td></tr>
+              <tr><td class="fname">台幣開戶_基本資料</td><td class="c-pass">12</td><td>0</td><td>0</td><td>0</td><td>0</td><td>12</td><td class="c-pass">3</td><td>0</td><td>3</td><td>0s 423ms</td><td class="c-status">Passed</td></tr>
+              <tr><td class="fname">台幣開戶_身分驗證</td><td class="c-pass">24</td><td>0</td><td>0</td><td>0</td><td>0</td><td>24</td><td class="c-pass">6</td><td>0</td><td>6</td><td>1s 102ms</td><td class="c-status">Passed</td></tr>
+              <tr><td class="fname">台幣開戶_快點卡</td><td class="c-pass">12</td><td>0</td><td>0</td><td>0</td><td>0</td><td>12</td><td class="c-pass">3</td><td>0</td><td>3</td><td>0s 334ms</td><td class="c-status">Passed</td></tr>
+              <tr><td class="fname">台幣開戶_OP審查</td><td class="c-pass">12</td><td>0</td><td>0</td><td>0</td><td>0</td><td>12</td><td class="c-pass">3</td><td>0</td><td>3</td><td>0s 618ms</td><td class="c-status">Passed</td></tr>
+              <tr><td class="fname">台幣開戶_開戶狀態</td><td class="c-pass">12</td><td>0</td><td>0</td><td>0</td><td>0</td><td>12</td><td class="c-pass">3</td><td>0</td><td>3</td><td>0s 507ms</td><td class="c-status">Passed</td></tr>
+              <tr class="total"><td>6</td><td>96</td><td>0</td><td>0</td><td>0</td><td>0</td><td>96</td><td>24</td><td>0</td><td>24</td><td>3s 796ms</td><td></td></tr>
+              <tr class="pct"><td></td><td>100.00%</td><td>0.00%</td><td>0.00%</td><td>0.00%</td><td>0.00%</td><td></td><td>100.00%</td><td>0.00%</td><td></td><td></td><td>100.00%</td></tr>
+            </table>
+          </div>
+        </div>
+        <div class="done-badge" id="doneBadge">
+          <div class="ring">✔ 全部完成</div>
+          <div class="sub">8/8 Scenarios · 測試報告已產生</div>
+        </div>
+        <div class="verdict win" id="verdictR">🏆 24 條測案全數通過</div>
+      </div>
+      <div class="pfoot">
+        <span class="pstatus" id="tStatusText">等待開始…</span>
+        <div class="pbar"><i id="tBar"></i></div>
+        <span class="plabel" id="tLabel">0 / 24 Scenarios</span>
+      </div>
+    </section>
+  </div>
+
+  <footer>MANUAL TESTING VS AI-POWERED TESTING · LIVE DEMO</footer>
+</div>
+
+<!-- 背景音樂:把你的音樂檔改名為 bgm.mp3 放在同資料夾即可(按開始對決自動播放) -->
+<audio id="bgm" loop preload="auto" src="bgm.mp3"></audio>
+<button id="bgmBtn" title="切換背景音樂">🔊 音樂</button>
+
+<!-- ============ 開始 / 重播 覆蓋層 ============ -->
+<div id="overlay">
+  <h2 id="overlayTitle">誰能先完成 12 支 API 的測試？</h2>
+  <button id="bigBtn">▶ 開始對決</button>
+  <div class="hint">按下按鈕或空白鍵開始</div>
+</div>
+
+<script>
+"use strict";
+/* ================================================================
+   時間軸總控：以 runId 做取消權杖，重播時舊排程全部自然失效
+   ================================================================ */
+let runId = 0;
+let leftStopped = false;   // 左側 60 秒「時間到」硬停旗標
+let leftDone = 0;          // 左側已完成的 API 數
+let rightDoneSec = 0;      // 右側 AI 完成全部測案的耗時(秒)
+const $ = id => document.getElementById(id);
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const alive = my => my === runId;
+const aliveL = my => my === runId && !leftStopped;
+const elapsedSec = () => Math.round((performance.now() - timers.start) / 1000);
+
+/* ---------------- 台幣開戶流程 8 支 API ---------------- */
+const APIS = [
+  {m:"POST", u:"/api/ekyc/id-card",     name:"客戶身分證拍攝"},
+  {m:"POST", u:"/api/ekyc/nhi-card",    name:"客戶健保卡拍攝"},
+  {m:"POST", u:"/api/account/profile",  name:"填寫客戶基本資料"},
+  {m:"POST", u:"/api/verify/2566-bank", name:"2566 他行帳號驗證"},
+  {m:"POST", u:"/api/card/quickpay",    name:"快點卡金融卡填寫"},
+  {m:"POST", u:"/api/verify/pin-code",  name:"Pin Code 驗證"},
+  {m:"POST", u:"/api/op/doc-review",    name:"OP 證件審查"},
+  {m:"GET",  u:"/api/account/status",   name:"確認是否本行客戶"},
+];
+const TOTAL = APIS.length; // 8
+
+/* 左側手動測試:每「條測試案例」一輪 — 想案例→打交易→截圖→貼 Excel。
+   人工憑經驗規劃 20 條(正向 8+反向 8+邊界只想到 4),AI 24 條差距 +20%;60 秒只做得完 2 條 */
+const CASES_PLANNED = 20;
+const MANUAL = [
+  {
+    api:0, caseName:"身分證拍攝-正向", type:"正向", status:"200 OK",
+    url:"https://bank.example.com/api/ekyc/id-card",
+    header:["Authorization","Bearer {{token}}"],
+    json:[
+      ['{','p'],['  "uploadId": ','k','"IMG-2049"','s'],['  "ocrStatus": ','k','"SUCCESS"','s'],
+      ['  "name": ','k','"王小明"','s'],['  "idNo": ','k','"A123456789"','s'],['}','p'],
+    ],
+  },
+  {
+    api:0, caseName:"身分證拍攝-反向", type:"反向", status:"422 Unprocessable",
+    url:"https://bank.example.com/api/ekyc/id-card",
+    header:["Authorization","Bearer {{token}}"],
+    json:[
+      ['{','p'],['  "uploadId": ','k','"IMG-2050"','s'],['  "ocrStatus": ','k','"FAILED"','s'],
+      ['  "error": ','k','"IMAGE_BLUR"','s'],['  "message": ','k','"影像模糊無法辨識"','s'],['}','p'],
+    ],
+  },
+  {
+    api:1, caseName:"健保卡拍攝-正向", type:"正向", status:"200 OK",
+    url:"https://bank.example.com/api/ekyc/nhi-card",
+    header:["Authorization","Bearer {{token}}"],
+    json:[
+      ['{','p'],['  "uploadId": ','k','"IMG-2051"','s'],['  "ocrStatus": ','k','"SUCCESS"','s'],
+      ['  "cardNo": ','k','"0000123456"','s'],['}','p'],
+    ],
+  },
+  {
+    api:1, caseName:"健保卡拍攝-反向", type:"反向", status:"422 Unprocessable",
+    url:"https://bank.example.com/api/ekyc/nhi-card",
+    header:["Authorization","Bearer {{token}}"],
+    json:[
+      ['{','p'],['  "ocrStatus": ','k','"FAILED"','s'],['  "error": ','k','"NOT_NHI_CARD"','s'],['}','p'],
+    ],
+  },
+];
+
+/* ================================================================
+   開場動畫
+   ================================================================ */
+const intro = $("intro");
+let introDone = false;
+function endIntro(){
+  if (introDone) return;
+  introDone = true;
+  intro.classList.add("hide");
+  showOverlay("誰先完成台幣開戶的測試？","▶ 開始對決");
+}
+intro.addEventListener("click", endIntro);
+setTimeout(endIntro, 4600);
+// 網址加 #auto 可跳過開場直接開始（測試 / 快速展示用）
+if (location.hash === "#auto"){
+  introDone = true;
+  intro.classList.add("hide");
+  setTimeout(startBattle, 300);
+}
+
+/* ================================================================
+   開始 / 重播 覆蓋層
+   ================================================================ */
+const overlay = $("overlay");
+function showOverlay(title, btn, end=false){
+  $("overlayTitle").textContent = title;
+  $("bigBtn").textContent = btn;
+  overlay.classList.toggle("end", end);
+  overlay.classList.add("show");
+}
+$("bigBtn").addEventListener("click", startBattle);
+document.addEventListener("keydown", e=>{
+  if (e.code === "Space"){
+    e.preventDefault();
+    if (!introDone) endIntro();
+    else if (overlay.classList.contains("show")) startBattle();
+  }
+});
+
+/* ================================================================
+   背景音樂(bgm.mp3 放同資料夾;檔案不存在時自動隱藏按鈕)
+   ================================================================ */
+const bgm = $("bgm");
+let bgmOn = true;
+bgm.volume = 0.55;
+bgm.addEventListener("error", ()=>{ $("bgmBtn").classList.add("hidden"); bgmOn = false; });
+$("bgmBtn").addEventListener("click", ()=>{
+  bgmOn = !bgmOn;
+  $("bgmBtn").classList.toggle("off", !bgmOn);
+  $("bgmBtn").textContent = bgmOn ? "🔊 音樂" : "🔇 靜音";
+  bgm.muted = !bgmOn;
+});
+let fadeInt = null;
+function bgmStart(){
+  if (!bgmOn) return;
+  clearInterval(fadeInt);
+  bgm.volume = 0.55;
+  bgm.currentTime = 0;
+  bgm.play().catch(()=>{});
+}
+function bgmFadeOut(){
+  clearInterval(fadeInt);
+  fadeInt = setInterval(()=>{
+    if (bgm.volume > 0.05) bgm.volume -= 0.05;
+    else { bgm.pause(); clearInterval(fadeInt); }
+  }, 150);
+}
+
+/* ================================================================
+   REC 計時器
+   ================================================================ */
+const timers = {int:null, start:0};
+function fmt(s){ return String(Math.floor(s/60)).padStart(2,"0")+":"+String(Math.floor(s%60)).padStart(2,"0"); }
+function startClock(){
+  timers.start = performance.now();
+  $("recL").classList.remove("stopped","timeup");
+  $("recR").classList.remove("stopped","timeup");
+  clearInterval(timers.int);
+  timers.int = setInterval(()=>{
+    const el = (performance.now()-timers.start)/1000;
+    if (!$("recL").classList.contains("stopped"))
+      $("recL").querySelector(".rtime").textContent = fmt(Math.min(el,60));
+    if (!$("recR").classList.contains("stopped"))
+      $("recR").querySelector(".rtime").textContent = fmt(el);
+    if (el >= 60) $("recL").classList.add("stopped","timeup");
+  }, 200);
+}
+function stopClockR(){ $("recR").classList.add("stopped"); }
+
+/* ================================================================
+   重置畫面
+   ================================================================ */
+function resetAll(){
+  // 左側
+  const list = $("pmList");
+  list.innerHTML = APIS.map((a,i)=>
+    `<div class="pm-item" data-i="${i}"><span class="m ${a.m}">${a.m}</span><span>${a.name}</span><span class="chk">✓</span></div>`
+  ).join("");
+  $("pmReqName").textContent = "尚未選擇請求";
+  $("pmMethod").textContent = "GET";
+  $("pmUrl").textContent = ""; $("pmUrl").classList.remove("caret");
+  $("pmEditor").innerHTML = "";
+  $("pmJson").innerHTML = "";
+  $("pmStatus").classList.remove("show");
+  $("pmTime").textContent = "";
+  $("pmSpin").classList.remove("show");
+  $("pmBar").style.width = "0%";
+  $("pmLabel").textContent = "0 / 20 條案例";
+  $("pmStatusText").textContent = "等待開始…";
+  $("verdictL").classList.remove("show");
+  document.querySelectorAll("#pmSubtabs span").forEach(s=>s.classList.remove("on"));
+  // Excel 視窗:表頭 + 6 列空白格線
+  $("xls").classList.remove("show");
+  $("shotTag").classList.remove("show");
+  let rows = '<tr><th class="rn"></th><th>A</th><th>B</th><th>C</th><th>D</th><th>E</th></tr>';
+  rows += '<tr><th class="rn">1</th><td class="hd">測試案例</td><td class="hd">類型</td><td class="hd">狀態碼</td><td class="hd">結果</td><td class="hd">截圖</td></tr>';
+  for (let r=0; r<6; r++)
+    rows += `<tr data-row="${r}"><th class="rn">${r+2}</th><td></td><td></td><td></td><td></td><td></td></tr>`;
+  $("xlsTable").innerHTML = rows;
+  // 右側
+  $("reportWin").classList.remove("show");
+  $("term").innerHTML = "";
+  $("tBar").style.width = "0%";
+  $("tLabel").textContent = "0 / 24 Scenarios";
+  $("tStatusText").textContent = "等待開始…";
+  $("doneBadge").classList.remove("show");
+  $("verdictR").classList.remove("show");
+  $("panelR").classList.remove("done");
+  $("recL").querySelector(".rtime").textContent = "00:00";
+  $("recR").querySelector(".rtime").textContent = "00:00";
+}
+
+/* ================================================================
+   左側：Postman 手動測試模擬
+   ================================================================ */
+async function moveCursorTo(el, my){
+  if (!aliveL(my)) return;
+  const pm = document.querySelector(".pm").getBoundingClientRect();
+  const r = el.getBoundingClientRect();
+  const c = $("cursor");
+  c.style.left = (r.left - pm.left + r.width*0.5) + "px";
+  c.style.top  = (r.top  - pm.top  + r.height*0.55) + "px";
+  await wait(820);
+}
+async function clickFx(my){
+  if (!aliveL(my)) return;
+  const c = $("cursor");
+  c.classList.remove("click"); void c.offsetWidth; c.classList.add("click");
+  await wait(380);
+}
+async function typeInto(el, text, cps, my){
+  el.classList.add("caret");
+  for (const ch of text){
+    if (!aliveL(my)) return;
+    el.textContent += ch;
+    await wait(1000/cps);
+  }
+  el.classList.remove("caret");
+}
+function selectSubtab(name){
+  document.querySelectorAll("#pmSubtabs span").forEach(s=>
+    s.classList.toggle("on", s.dataset.tab === name));
+}
+function renderJson(lines){
+  return lines.map(l=>{
+    let html = "";
+    for (let i=0;i<l.length;i+=2) html += `<span class="j-${l[i+1]}">${l[i]}</span>`;
+    return `<div>${html}</div>`;
+  }).join("");
+}
+
+async function runLeft(my){
+  $("pmStatusText").textContent = "工程師手動測試中…";
+  for (let n=0; n<MANUAL.length; n++){
+    const step = MANUAL[n], api = APIS[step.api];
+    if (!aliveL(my)) return;
+
+    // 0. 先憑經驗想這條測試案例(正向/反向 — 邊界案例根本沒想到)
+    $("pmStatusText").textContent = `思考測試案例:${step.caseName}(憑經驗想)…`;
+    await wait(1800); if (!aliveL(my)) return;
+
+    // 1. 點選左欄請求
+    const item = document.querySelector(`.pm-item[data-i="${step.api}"]`);
+    await moveCursorTo(item, my); await clickFx(my);
+    if (!aliveL(my)) return;
+    document.querySelectorAll(".pm-item").forEach(x=>x.classList.remove("active"));
+    item.classList.add("active");
+    $("pmReqName").textContent = step.caseName;
+    $("pmMethod").textContent = api.m;
+    $("pmUrl").textContent = "";
+    $("pmJson").innerHTML = ""; $("pmStatus").classList.remove("show"); $("pmTime").textContent = "";
+    $("pmEditor").innerHTML = "";
+    selectSubtab(null);
+    await wait(550);
+
+    // 2. 逐字輸入 URL
+    await moveCursorTo($("pmUrl"), my); await clickFx(my);
+    await typeInto($("pmUrl"), step.url, 17, my);
+    if (!aliveL(my)) return;
+
+    // 3. 切到 Headers 填 header
+    const headersTab = document.querySelector('#pmSubtabs span[data-tab="headers"]');
+    await moveCursorTo(headersTab, my); await clickFx(my);
+    if (!aliveL(my)) return;
+    selectSubtab("headers");
+    const kvRow = document.createElement("div");
+    kvRow.className = "kv";
+    kvRow.innerHTML = `<span class="k">${step.header[0]}</span><span class="v"></span>`;
+    $("pmEditor").appendChild(kvRow);
+    await typeInto(kvRow.querySelector(".v"), step.header[1], 14, my);
+    if (!aliveL(my)) return;
+
+    // 4. 點 Send → 等 spinner
+    await moveCursorTo($("pmSend"), my); await clickFx(my);
+    if (!aliveL(my)) return;
+    $("pmSend").classList.add("pressed");
+    setTimeout(()=>$("pmSend").classList.remove("pressed"), 200);
+    $("pmSpin").classList.add("show");
+    $("pmStatusText").textContent = "等待伺服器回應…";
+    await wait(2600);
+    if (!aliveL(my)) return;
+    $("pmSpin").classList.remove("show");
+
+    // 5. 回應逐行出現
+    const ms = 180 + Math.floor(Math.random()*300);
+    $("pmStatus").textContent = step.status;
+    $("pmStatus").classList.add("show");
+    $("pmTime").textContent = `⏱ ${ms} ms`;
+    $("pmStatusText").textContent = "檢查回應內容…";
+    const holder = document.createElement("div");
+    holder.innerHTML = renderJson(step.json);
+    for (const line of [...holder.children]){
+      if (!aliveL(my)) return;
+      $("pmJson").appendChild(line);
+      await wait(240);
+    }
+    await wait(800);
+
+    // 6. 手動截圖回應畫面
+    $("pmStatusText").textContent = "手動擷取測試結果畫面…";
+    const shotName = `screenshot_0${n+1}.png`;
+    $("shotTag").textContent = `📸 手動擷取畫面 ${shotName}`;
+    const flash = $("shotFlash");
+    flash.classList.remove("go"); void flash.offsetWidth; flash.classList.add("go");
+    $("shotTag").classList.add("show");
+    await wait(1400); if (!aliveL(my)) return;
+    $("shotTag").classList.remove("show");
+
+    // 7. 切到 Excel,把結果一格一格貼上
+    $("pmStatusText").textContent = "切換到 Excel,貼上測試結果…";
+    $("xls").classList.add("show");
+    await wait(750); if (!aliveL(my)) return;
+    const cells = [...document.querySelectorAll(`#xlsTable tr[data-row="${n}"] td`)];
+    await moveCursorTo(cells[0], my); await clickFx(my);
+    if (!aliveL(my)) return;
+    cells[0].classList.add("sel");
+    await typeInto(cells[0], step.caseName, 12, my);
+    if (!aliveL(my)) return;
+    cells[0].classList.remove("sel"); cells[1].classList.add("sel");
+    await typeInto(cells[1], step.type, 8, my);
+    if (!aliveL(my)) return;
+    cells[1].classList.remove("sel"); cells[2].classList.add("sel");
+    await typeInto(cells[2], step.status.split(" ")[0], 8, my);
+    if (!aliveL(my)) return;
+    cells[2].classList.remove("sel"); cells[3].classList.add("sel");
+    cells[3].classList.add("pass");
+    await typeInto(cells[3], "PASS", 8, my);
+    if (!aliveL(my)) return;
+    cells[3].classList.remove("sel"); cells[4].classList.add("sel");
+    await moveCursorTo(cells[4], my); await clickFx(my);
+    if (!aliveL(my)) return;
+    $("pmStatusText").textContent = "貼上截圖…";
+    cells[4].textContent = `📷 ${shotName}`;
+    await wait(900); if (!aliveL(my)) return;
+    cells[4].classList.remove("sel");
+    await wait(600); if (!aliveL(my)) return;
+    $("xls").classList.remove("show");
+    await wait(600); if (!aliveL(my)) return;
+
+    // 8. 完成一條案例
+    leftDone = n + 1;
+    if (step.type === "反向") item.classList.add("tested");
+    $("pmBar").style.width = (leftDone/CASES_PLANNED*100) + "%";
+    $("pmLabel").textContent = `${leftDone} / ${CASES_PLANNED} 條案例`;
+    $("pmStatusText").textContent = `完成 ${leftDone} 條,還剩 ${CASES_PLANNED-leftDone} 條…`;
+    await wait(600);
+  }
+
+  // 案例做完但時間還沒到：開始想下一條（會被 60 秒硬停凍結，強化「做不完」感）
+  if (!aliveL(my)) return;
+  $("pmStatusText").textContent = "思考測試案例:基本資料-正向…";
+  await wait(1800); if (!aliveL(my)) return;
+  const next = 2; // 基本資料 API
+  const item = document.querySelector(`.pm-item[data-i="${next}"]`);
+  await moveCursorTo(item, my); await clickFx(my);
+  if (!aliveL(my)) return;
+  document.querySelectorAll(".pm-item").forEach(x=>x.classList.remove("active"));
+  item.classList.add("active");
+  $("pmReqName").textContent = "基本資料-正向";
+  $("pmMethod").textContent = APIS[next].m;
+  $("pmUrl").textContent = "";
+  $("pmJson").innerHTML = ""; $("pmStatus").classList.remove("show"); $("pmTime").textContent = "";
+  $("pmEditor").innerHTML = "";
+  selectSubtab(null);
+  await moveCursorTo($("pmUrl"), my); await clickFx(my);
+  await typeInto($("pmUrl"), "https://bank.example.com/api/account/profile", 5, my); // 極慢輸入直到被時間到打斷
+}
+function finishLeft(){
+  $("recL").classList.add("stopped","timeup");
+  $("recL").querySelector(".rtime").textContent = "01:00";
+  // 依需求:手動測試最後停留在 Excel 截圖紀錄的畫面
+  $("xls").classList.add("show");
+  $("pmStatusText").textContent = `⚠ 想案例、打交易、截圖、貼 Excel — 才完成 ${leftDone} / ${CASES_PLANNED} 條…`;
+  $("verdictL").textContent = `❌ 只完成 ${leftDone} / ${CASES_PLANNED} 條，邊界案例想得不全`;
+  $("verdictL").classList.add("show");
+  $("verdictR").classList.add("show");
+  bgmFadeOut();
+  const aiSec = rightDoneSec || 20;
+  setTimeout(()=>showOverlay(`⏱ AI ${aiSec} 秒產出 24 條測案全數通過；人工規劃 20 條只完成 ${leftDone} 條，邊界案例還想得不全`,"🔁 再看一次", true), 1500);
+}
+
+/* ================================================================
+   右側：Copilot CLI 終端機模擬
+   ================================================================ */
+const term = $("term");
+function tline(html, cls=""){
+  const d = document.createElement("div");
+  d.className = "ln" + (cls ? " " + cls : "");
+  d.innerHTML = html;
+  term.appendChild(d);
+  term.scrollTop = term.scrollHeight;
+  return d;
+}
+async function ttype(el, text, cps, my){
+  const span = document.createElement("span");
+  span.className = "t-cmd tcaret";
+  el.appendChild(span);
+  for (const ch of text){
+    if (!alive(my)) return;
+    span.textContent += ch;
+    term.scrollTop = term.scrollHeight;
+    await wait(1000/cps);
+  }
+  span.classList.remove("tcaret");
+}
+
+/* 四個 Agent 的顯示徽章 */
+const AG = {
+  req : '<span class="agchip ag1">需求分析 Agent</span>',
+  gen : '<span class="agchip ag2">測案生成 Agent</span>',
+  code: '<span class="agchip ag3">程式碼 Agent</span>',
+  run : '<span class="agchip ag4">Code Review Agent</span>',
+};
+const FEATURE_EKYC = [
+  ['g-cmt','# language: zh-TW'],
+  ['t-file','@台幣開戶 @TWD-1024'],
+  ['g-kw','功能<span class="t-dim">: 台幣開戶 — 證件拍攝</span>'],
+  ['g-kw','&nbsp;&nbsp;場景<span class="t-dim">: [正向] 上傳身分證影像並完成 OCR 辨識</span>'],
+  ['g-step','&nbsp;&nbsp;&nbsp;&nbsp;當 <span class="t-dim">我上傳身分證正反面影像至</span> <span class="g-str">"/api/ekyc/id-card"</span>'],
+  ['g-step','&nbsp;&nbsp;&nbsp;&nbsp;那麼 <span class="t-dim">回應狀態碼應為</span> <span class="g-str">200</span> <span class="t-dim">且 OCR 為</span> <span class="g-str">"SUCCESS"</span>'],
+  ['g-kw','&nbsp;&nbsp;場景<span class="t-dim">: [反向] 模糊影像應回傳 OCR_FAILED</span>'],
+  ['g-step','&nbsp;&nbsp;&nbsp;&nbsp;當 <span class="t-dim">我上傳模糊的身分證影像</span>'],
+  ['g-step','&nbsp;&nbsp;&nbsp;&nbsp;那麼 <span class="t-dim">回應狀態碼應為</span> <span class="g-str">422</span>'],
+  ['g-kw','&nbsp;&nbsp;場景<span class="t-dim">: [邊界] 影像超過 5MB 應回傳 413</span>'],
+  ['g-step','&nbsp;&nbsp;&nbsp;&nbsp;當 <span class="t-dim">我上傳 5.1MB 的身分證影像</span>'],
+  ['g-step','&nbsp;&nbsp;&nbsp;&nbsp;那麼 <span class="t-dim">回應狀態碼應為</span> <span class="g-str">413</span>'],
+];
+/* 24 條測案:每支 API 正向/反向/邊界 各一 */
+const SCENARIOS = [
+  {t:"pos", n:"身分證拍攝 › 上傳清晰影像 OCR 成功"},
+  {t:"neg", n:"身分證拍攝 › 模糊影像回傳 OCR_FAILED"},
+  {t:"edge",n:"身分證拍攝 › 影像超過 5MB 回傳 413"},
+  {t:"pos", n:"健保卡拍攝 › 上傳影像 OCR 成功"},
+  {t:"neg", n:"健保卡拍攝 › 非健保卡影像被拒絕"},
+  {t:"edge",n:"健保卡拍攝 › 連續失敗 3 次流程鎖定"},
+  {t:"pos", n:"基本資料 › 完整填寫儲存成功"},
+  {t:"neg", n:"基本資料 › 手機格式錯誤回傳 400"},
+  {t:"edge",n:"基本資料 › 姓名 50 字上限驗證"},
+  {t:"pos", n:"他行驗證 › 2566 帳號驗證 MATCH"},
+  {t:"neg", n:"他行驗證 › 帳號不存在 NOT_FOUND"},
+  {t:"edge",n:"他行驗證 › 逾時 30 秒自動重試"},
+  {t:"pos", n:"快點卡 › 金融卡資料填寫成功"},
+  {t:"neg", n:"快點卡 › 卡號檢核碼錯誤被拒"},
+  {t:"edge",n:"快點卡 › 有效期限當月到期仍可用"},
+  {t:"pos", n:"Pin Code › 驗證通過"},
+  {t:"neg", n:"Pin Code › 錯誤 Pin 回傳 401"},
+  {t:"edge",n:"Pin Code › 連錯 3 次鎖定帳戶"},
+  {t:"pos", n:"OP 審查 › 證件審查通過"},
+  {t:"neg", n:"OP 審查 › 證件過期退件"},
+  {t:"edge",n:"OP 審查 › 審查逾時自動轉人工"},
+  {t:"pos", n:"開戶狀態 › 確認為本行既有客戶"},
+  {t:"neg", n:"開戶狀態 › 非本行客戶導引補件"},
+  {t:"edge",n:"開戶狀態 › 重複申請開戶防呆擋下"},
+];
+const SC_TAG = {
+  pos :'<span class="sctag pos">正向</span>',
+  neg :'<span class="sctag neg">反向</span>',
+  edge:'<span class="sctag edge">邊界</span>',
+};
+
+/* 子 Agent 樹狀節點:回傳可更新狀態的行 */
+function agentNode(branch, chip, text){
+  return tline(`<span class="t-dim">&nbsp;&nbsp;${branch}</span> ${chip} <span class="t-ai think">${text}</span>`);
+}
+function agentDone(node, branch, chip, text){
+  node.innerHTML = `<span class="t-dim">&nbsp;&nbsp;${branch}</span> ${chip} <span class="t-ok">✔</span> <span class="t-dim">${text}</span>`;
+}
+
+async function runRight(my){
+  $("tStatusText").textContent = "AI 執行中…";
+  await wait(600);
+
+  // 1. 指令就是貼上一個 JIRA 需求單 URL
+  const cmdLine = tline('<span class="t-prompt">PS C:\\demo&gt;</span> ');
+  await ttype(cmdLine, 'copilot "https://jira.bank.local/browse/TWD-1024"', 30, my);
+  if (!alive(my)) return;
+  await wait(450);
+
+  // 2. 主 Agent 接單,分派子 Agent
+  tline('<span class="t-ai">✦ 主 Agent(Orchestrator)</span> <span class="t-dim">已接收 JIRA 需求單</span> <span class="t-file">TWD-1024「台幣數位開戶」</span><span class="t-dim">,開始分派子任務…</span>');
+  await wait(800); if (!alive(my)) return;
+
+  // 2a. 需求分析 Agent
+  $("tStatusText").textContent = "▶ 需求分析 Agent 執行中…";
+  const nReq = agentNode("├─", AG.req, "解析需求單,識別 API 與測試範圍…");
+  await wait(1500); if (!alive(my)) return;
+  agentDone(nReq, "├─", AG.req, '8 支 API,規劃 <span class="t-warn">24 條測案(正向 8 / 反向 8 / 邊界 8)</span>');
+  await wait(500); if (!alive(my)) return;
+
+  // 2b. 測案生成 Agent
+  $("tStatusText").textContent = "▶ 測案生成 Agent 執行中…";
+  const nGen = agentNode("├─", AG.gen, "產生 Cucumber 測試案例…");
+  await wait(400);
+  tline('<span class="t-file">&nbsp;&nbsp;│&nbsp;&nbsp;📄 features/台幣開戶_證件拍攝.feature</span>');
+  for (const [cls, html] of FEATURE_EKYC){
+    if (!alive(my)) return;
+    tline(`<span class="t-dim">&nbsp;&nbsp;│&nbsp;&nbsp;</span><span class="${cls}">${html}</span>`);
+    await wait(115);
+  }
+  await wait(300); if (!alive(my)) return;
+  tline('<span class="t-dim">&nbsp;&nbsp;│&nbsp;&nbsp;…以及</span> <span class="t-file">健保卡 / 基本資料 / 身分驗證 / 快點卡 / OP 審查 / 開戶狀態</span> <span class="t-dim">共 6 個 feature 檔</span>');
+  await wait(450); if (!alive(my)) return;
+  agentDone(nGen, "├─", AG.gen, '產生 <span class="t-warn">24 條測試案例</span>(比人工憑經驗規劃的多 20%,邊界案例全補齊)');
+  await wait(500); if (!alive(my)) return;
+
+  // 2c. 程式碼 Agent
+  $("tStatusText").textContent = "▶ 程式碼 Agent 執行中…";
+  const nCode = agentNode("├─", AG.code, "產生 JAVA 測試程式碼…");
+  await wait(1200); if (!alive(my)) return;
+  agentDone(nCode, "├─", AG.code, '<span class="t-file">src/test/java/steps/OpenAccountSteps.java</span>(96 個步驟定義)');
+  await wait(500); if (!alive(my)) return;
+
+  // 2d. Code Review Agent
+  $("tStatusText").textContent = "▶ Code Review Agent 執行中…";
+  const nRev = agentNode("└─", AG.run, "審查測試程式碼中…");
+  await wait(1200); if (!alive(my)) return;
+  agentDone(nRev, "└─", AG.run, "審查通過(0 個問題)");
+  await wait(400); if (!alive(my)) return;
+
+  // 3. 主 Agent 收攏 → 執行 mvn test
+  tline('<span class="t-ai">✦ 主 Agent(Orchestrator)</span> <span class="t-dim">所有子任務完成 → 執行測試</span>');
+  $("tStatusText").textContent = "▶ 執行 mvn test…";
+  tline("&nbsp;");
+  const runLine = tline('<span class="t-prompt">PS C:\\demo&gt;</span> ');
+  await ttype(runLine, 'mvn test -Dcucumber.filter.tags="@TWD-1024"', 42, my);
+  if (!alive(my)) return;
+  await wait(550);
+  for (let i=0;i<SCENARIOS.length;i++){
+    if (!alive(my)) return;
+    const s = SCENARIOS[i];
+    const ms = 80 + Math.floor(Math.random()*240);
+    tline(`<span class="t-ok">&nbsp;&nbsp;✓</span> ${SC_TAG[s.t]} <span class="t-dim">Scenario:</span> ${s.n} <span class="t-dim">(${ms}ms)</span>`);
+    $("tBar").style.width = ((i+1)/24*100) + "%";
+    $("tLabel").textContent = `${i+1} / 24 Scenarios`;
+    await wait(150);
+  }
+  await wait(300); if (!alive(my)) return;
+
+  // 4. 摘要 + 報告卡
+  tline("&nbsp;");
+  tline('<span class="t-ok">24 scenarios (24 passed)</span>');
+  tline('<span class="t-ok">96 steps (96 passed)</span>');
+  tline('<span class="t-dim">0m 04.1s (executing steps: 0m 03.8s)</span>');
+  await wait(500); if (!alive(my)) return;
+
+  const doneSec = elapsedSec();
+  const card = document.createElement("div");
+  card.className = "report-card";
+  card.innerHTML = `
+    <h3>📊 測試報告已產生 → reports/cucumber-report.html</h3>
+    <div class="report-grid">
+      <div class="cell ok"><b>24/24</b><span>Scenarios 通過</span></div>
+      <div class="cell ok"><b>96/96</b><span>Steps 通過</span></div>
+      <div class="cell"><b>100%</b><span>案例涵蓋(含邊界)</span></div>
+      <div class="cell"><b>${doneSec}s</b><span>總耗時</span></div>
+    </div>`;
+  term.appendChild(card);
+  term.scrollTop = term.scrollHeight;
+  await wait(900); if (!alive(my)) return;
+
+  // 7. 測試跑完後,才用 HTML 開啟測試報告
+  $("tStatusText").textContent = "開啟 cucumber-report.html…";
+  tline("&nbsp;");
+  const openLine = tline('<span class="t-prompt">PS C:\\demo&gt;</span> ');
+  await ttype(openLine, 'start .\\reports\\cucumber-report.html', 38, my);
+  if (!alive(my)) return;
+  await wait(500);
+  $("rwTime").textContent = `產生於剛剛 · 耗時 ${doneSec}s`;
+  $("reportWin").classList.add("show");
+  await wait(2200); if (!alive(my)) return;
+
+  // 8. 完成！
+  rightDoneSec = doneSec;
+  stopClockR();
+  $("panelR").classList.add("done");
+  $("doneBadge").querySelector(".sub").textContent =
+    `24 條測案(含 8 條邊界) · 測試報告已產生 · 僅花 ${doneSec} 秒`;
+  $("doneBadge").classList.add("show");
+  $("tStatusText").textContent = "✔ 24 條測案 + 測試報告全部完成！";
+}
+
+/* ================================================================
+   開始對決
+   ================================================================ */
+function startBattle(){
+  runId++;
+  const my = runId;
+  leftStopped = false;
+  leftDone = 0;
+  overlay.classList.remove("show");
+  resetAll();
+  bgmStart();
+  startClock();
+  runLeft(my);
+  runRight(my);
+  // 60 秒整：左側硬停 → 兩邊亮出結果標籤
+  setTimeout(()=>{
+    if (!alive(my)) return;
+    leftStopped = true;
+    finishLeft();
+  }, 60000);
+}
+</script>
+</body>
+</html>
