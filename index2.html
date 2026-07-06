@@ -483,7 +483,7 @@
   </div>
   <div id="vs">VS</div>
   <div id="flash"></div>
-  <div class="intro-skip">點擊任意處跳過</div>
+  <div class="intro-skip">點一下畫面繼續</div>
 </div>
 
 <!-- ============ 主舞台 ============ -->
@@ -542,7 +542,7 @@
           <div class="xls-tool"><span>常用</span><span>插入</span><span>版面配置</span><span>公式</span><span>資料</span><span>校閱</span><span>檢視</span></div>
           <div class="xls-grid"><table id="xlsTable"></table></div>
         </div>
-        <div class="verdict lose" id="verdictL">❌ 只完成 2 / 20 條，邊界案例想得不全</div>
+        <div class="verdict lose" id="verdictL">❌ 只完成 2 / 20 條，邊界案例還想得不夠周全</div>
       </div>
       <div class="pfoot">
         <span class="pstatus" id="pmStatusText">等待開始…</span>
@@ -627,7 +627,7 @@
 <div id="overlay">
   <h2 id="overlayTitle">誰能先完成 12 支 API 的測試？</h2>
   <button id="bigBtn">▶ 開始對決</button>
-  <div class="hint">按下按鈕或空白鍵開始</div>
+  <div class="hint">再點一下畫面開始播放</div>
 </div>
 
 <script>
@@ -748,8 +748,8 @@ function endIntro(){
   intro.classList.add("hide");
   showOverlay("誰先完成台幣開戶的測試？","▶ 開始對決");
 }
+// 簡報控場:不自動進入 — 第一下點擊結束開場、跳出「開始對決」;第二下點擊才開始播放
 intro.addEventListener("click", endIntro);
-setTimeout(endIntro, 4600);
 // 網址加 #auto 可跳過開場直接開始（測試 / 快速展示用）
 if (location.hash === "#auto"){
   introDone = true;
@@ -767,7 +767,8 @@ function showOverlay(title, btn, end=false){
   overlay.classList.toggle("end", end);
   overlay.classList.add("show");
 }
-$("bigBtn").addEventListener("click", startBattle);
+// 覆蓋層任意處(不只按鈕)點一下就開始,簡報時不必精準點到按鈕
+overlay.addEventListener("click", ()=>{ if (overlay.classList.contains("show")) startBattle(); });
 document.addEventListener("keydown", e=>{
   if (e.code === "Space"){
     e.preventDefault();
@@ -1144,11 +1145,11 @@ function finishLeft(){
   $("xls").classList.remove("mini");
   $("xls").classList.add("show");
   $("pmStatusText").textContent = "⚠ 想案例、打交易、截圖、貼 Excel — 整整花了 2 個工作天…";
-  $("verdictL").textContent = "❌ 人工耗時 2 天，邊界案例還想得不全";
+  $("verdictL").textContent = "❌ 人工耗時 2 天，邊界案例還想得不夠周全";
   $("verdictL").classList.add("show");
   $("verdictR").classList.add("show");
   bgmFadeOut();
-  setTimeout(()=>showOverlay("⏱ 同一份工作：AI 15 分鐘產出 24 條測案＋報告；人工 2 天，邊界案例還想得不全","🔁 再看一次", true), 1500);
+  setTimeout(()=>showOverlay("⏱ 同一份工作：AI 15 分鐘產出 24 條測案＋報告；人工 2 天，邊界案例還想得不夠周全","🔁 再看一次", true), 1500);
 }
 
 /* ================================================================
