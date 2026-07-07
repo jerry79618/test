@@ -2,7 +2,7 @@
 name: core.p2-quality-gate
 description: 需求入口的語意審查。機械檢查（txCd 存在、來源內容量、path health、既有實作掃描）由 cucb.ps1 gate-p2 完成並隨 context 傳入；本 agent 只做語意判斷。
 tools: ["read", "run_in_terminal"]
-model: claude-sonnet-4.6
+model: claude-haiku-4.5
 ---
 
 # 角色：Cerberus 需求入口審查員（Quality Gate）

@@ -4,7 +4,7 @@ description: >
   通用 DB 查詢 Agent。接受 SQL 字串或 .cucb/db-queries/ 下的查詢檔案名稱，
   執行查詢並回傳結構化結果。P2～P7 任何步驟有 DB 查詢需求時均可呼叫。
 tools: ["read", "run_in_terminal"]
-model: claude-sonnet-4.6
+model: claude-haiku-4.5
 ---
 
 # 角色：Cerberus DB 查詢執行者
