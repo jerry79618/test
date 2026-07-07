@@ -9,6 +9,7 @@ allowed-tools: shell, ask_user
 # Cerberus Init 精靈
 
 此技能以**互動問答方式**收集專案環境資訊，自動寫入：
+- 環境變數 `JIRA_PAT` / `WIKI_PAT`（需求來源憑證，使用者層級，**不寫入檔案**）
 - `.cucb/config.md`（P3 原始碼路徑、txCd Pattern）
 - `src/test/resources/dev.conf`（API endpoint 設定）
 - `.cucb/db-config.md`（選用，DB 查詢功能設定）
@@ -24,9 +25,43 @@ allowed-tools: shell, ask_user
 - 若已存在 → 顯示現有內容，詢問是要**新增系統**或**完整重設**
 - 若不存在 → 直接進入 Phase 2 全新設定
 
+同時檢查需求來源憑證是否已設定（只檢查存在與否，**不顯示值**）：
+
+```powershell
+[bool]$env:JIRA_PAT; [bool]$env:WIKI_PAT
+```
+
+- 兩者皆已設定 → 跳過 Step 2-0（使用者可主動要求更新）
+- 任一缺 → Phase 2 從 Step 2-0 開始
+
 ---
 
 ### Phase 2 — 收集系統資訊（逐步問答）
+
+#### Step 2-0：需求來源憑證（JIRA / Wiki Token）
+
+> P1（fetch-requirement）與 wiki-search 需要 JIRA / Confluence 的 Personal Access Token。
+> Token 以**使用者層級環境變數**保存（`JIRA_PAT` / `WIKI_PAT`），**嚴禁寫入任何專案檔案或版控**。
+
+```
+ask_user(
+  question: "需要設定需求來源的存取憑證（存在你個人的 Windows 環境變數，不會寫入專案檔案）：
+  (1) JIRA Personal Access Token（JIRA 個人設定 → Personal Access Tokens 產生）
+  (2) Confluence Wiki Personal Access Token
+  請依序貼上兩個 token；只用其中一種來源的話，另一個可填「跳過」。",
+  allow_freeform: true
+)
+```
+
+收到後立即寫入（同時設定目前 session 與永久值），**不回顯 token 內容**，完成只回報「已設定」：
+
+```powershell
+[Environment]::SetEnvironmentVariable('JIRA_PAT', '<token>', 'User'); $env:JIRA_PAT = '<token>'
+[Environment]::SetEnvironmentVariable('WIKI_PAT', '<token>', 'User'); $env:WIKI_PAT = '<token>'
+```
+
+> 使用者層級變數對**新開的**終端機生效；目前 session 由 `$env:` 補上，設定完即可直接使用。
+> 使用者選「跳過」→ 記錄該來源未設定，提醒對應功能（JIRA 抓取 / Wiki 抓取）暫不可用。
 
 #### Step 2-1：系統識別與 txCd Pattern
 
@@ -219,6 +254,9 @@ ask_user(
 
 ```
 ✅ Cerberus 環境設定完成
+
+已設定：
+- 環境變數 JIRA_PAT / WIKI_PAT  ← 需求來源憑證（僅在你的使用者環境，未寫入任何檔案）
 
 已產生：
 - .cucb/config.md          ← P3 原始碼路徑
