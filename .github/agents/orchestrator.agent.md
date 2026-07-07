@@ -93,8 +93,8 @@ context：`{ txCd_list: [{txCd, category}], source_paths, related_features, rela
 
 ### P4 需求整理
 
-context：`{ requirement_id, source_path, source_paths, txCd_list, existing_features, related_features, related_steps, code_analysis_paths, io_objects, step_capabilities_path, feasibility_answers_path: ".cucb/feasibility-answers.md", user_clarifications, p3_confirmations }`。
-`io_objects` 由 P3 回傳的 `analysis_items[i].io_objects` 以 txCd 為 key 組成；多 source 時對每個 source_path 各呼叫一次並彙整。
+context：`{ requirement_id, source_path, source_paths, txCd_list, existing_features, related_features, related_steps, code_analysis_paths, step_capabilities_path, feasibility_answers_path: ".cucb/feasibility-answers.md", user_clarifications, p3_confirmations }`。
+**不傳 `io_objects` 內容**——I/O 規格已完整寫在 code_analysis 檔內（P3 鐵律 3），P4 自行讀檔，避免同一份欄位資料在 context 重複兩次把請求撐大。多 source 時對每個 source_path 各呼叫一次並彙整。
 
 | 回傳 status | 處置 |
 |------------|------|
@@ -154,6 +154,7 @@ context：`{ requirement_spec_path, changed_files: [P4+P5+P6 全部產出含 bo_
 | `prefix_not_configured` / `path_not_found` | (1) 本機原始碼路徑？(2) 未 clone 的話 repo 名稱？(3) 或確定跳過原始碼分析？ | 路徑以 Test-Path 驗證 → 寫入 config.md 前綴表 → 重跑 gate-p2 確認；驗證失敗要告知並重問 |
 | `lbsystem_not_configured` | (1) 這支交易屬哪個系統？(2) 不確定時同前綴其他交易打哪？ | 確認 LBSystem enum 有此值（無則列入 P6 新增）→ 寫 config.md |
 | `endpoint_not_configured` | (1) 測試環境 URL（含 port）？(2) 需要帳密嗎？(3) 或不走 API（DB/檔案驗證）？ | 寫 dev.conf；「不走 API」記入 config.md 驗證機制補充 |
+| `protocol_not_configured` | (1) 這個系統的請求信封是原生 CBK、MCA 還是其他？(2) 非 CBK 的話有介接文件或 request/response 範例嗎？ | 寫入 config.md「系統協定設定」表；契約不全時 Header Helper 欄標 `⚠️ 待補`（P6 會產骨架並回報缺口，不會猜格式） |
 | `config_missing` | 提示執行 `@cerberus-init` | `plan-state Paused` |
 
 回答一律回寫設定檔，同前綴之後不再重問。「稍後準備」→ Paused，continue 時重跑 gate-p2。明確跳過 → 記錄後 P3 預期 SourceNotFound，P4 將把該 txCd 的 I/O 列入 clarifications 釐清。

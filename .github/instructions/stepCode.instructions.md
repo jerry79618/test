@@ -641,6 +641,10 @@ public void pendingEdwHasBroadcastRecords(String custName, DataTable dataTable) 
 - 方法體只有 `throw new PendingException(...)`
 - 加上 `// TODO:` 說明缺少什麼
 
+### Header / 信封選擇（依系統協定表）
+
+請求信封**不可一律假設為原生 CBK**。組請求前先查 `.cucb/config.md`「系統協定設定」表，依該 LBSystem 列的 `Header Helper` 與 `Response 類型` 選擇實作類別（範例存放於 `.cucb/protocol-samples/<LBSystem>.md`）。表不存在時視為原生 CBK；表存在但該系統標 `⚠️ 待補` 或框架無對應 Helper 時，走下方「協定不相容時的骨架 Helper」，禁止硬套 CBK 信封。
+
 ### ClientProvider 新增 client（相容協定）
 
 當 `dev.conf` 有新 endpoint group 但 `ClientProvider` 無對應 client 時，參考此 pattern 補齊：

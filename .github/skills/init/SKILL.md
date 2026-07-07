@@ -104,12 +104,32 @@ ask_user(
   對每個系統，請提供：
   - 環境名稱（dev / stg）
   - 完整 URL（含 port）
-  - 帳號密碼（若需要，密碼將加密儲存）",
+  - 帳號密碼（若需要，密碼將加密儲存）
+  - 請求信封格式：這個系統用的是原生 CBK header，還是 MCA 或其他格式？（不確定就填 CBK）",
   allow_freeform: true
 )
 ```
 
 > 若使用者回應「沒有 API」或「不走 API」→ 進入 Step 2-3b
+> 若任一系統的信封格式**不是 CBK** → 完成本步後進入 Step 2-3c
+
+#### Step 2-3c（信封非 CBK 時）：收集介接契約
+
+對每個非 CBK 信封的系統：
+
+```
+ask_user(
+  question: "<系統> 使用 <格式> 信封，需要介接契約才能讓測試程式正確組請求。請提供：
+  (1) Header 欄位清單（欄位名、必填與否、值來源，例如交易序號怎麼產生、認證怎麼帶）
+  (2) 一份實際的 request/response 範例（可直接貼 JSON/XML，或介接文件連結）
+  (3) 錯誤碼在 response 的哪個欄位？（例如 body.rtnCode）
+  現在拿不到完整資料也可以先說，我會在協定表標注待補。",
+  allow_freeform: true
+)
+```
+
+- 有完整契約 → 寫入協定表，範例存到 `.cucb/protocol-samples/<LBSystem>.md`
+- 資料不全 → 協定表該列的 Header Helper 欄填 `⚠️ 待補`，P6 遇到時會以 `NeedsInput` 要求補齊，不會猜格式
 
 #### Step 2-3b（無 API 時）：補充驗證機制
 
@@ -206,6 +226,18 @@ ask_user(
 |-----------|---------|----------|------------|
 | `<前綴>*` | `<路徑>` | <系統代碼> | <系統名稱> |
 ```
+
+以及 `## 系統協定設定` 表格（每個出現在 endpoint 設定的 LBSystem 都要有一列；信封格式使用者沒特別說就填 CBK 預設列）：
+
+```markdown
+## 系統協定設定
+| LBSystem | HeaderType | Header Helper | Response 類型 | 錯誤碼位置 | 說明 |
+|----------|-----------|---------------|--------------|-----------|------|
+| CBK      | CBK       | CBKHeaderHelper | CBKResponse | header.msgCd | 原生核心 |
+| <系統>   | <格式>    | <Helper 類名或 ⚠️ 待補> | <Response 類名> | <欄位路徑> | <說明> |
+```
+
+> 此表是 P6 選擇 Header/Client 的依據；gate-p2 會檢查每個 txCd 的 LBSystem 是否在表內（缺列 → `protocol_not_configured`，BP-P2 要求補件）。**舊 config.md 沒有此表時，一律視為原生 CBK**（相容既有行為）。
 
 #### `src/test/resources/dev.conf`
 

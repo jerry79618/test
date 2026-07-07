@@ -111,7 +111,7 @@ P4 收到 `user_clarifications` 時：
 
    | 檢查項 | 觸發條件 | 需釐清的內容 |
    |--------|---------|-------------|
-   | Input 規格缺失 | `io_objects.source == "not_found"`，或分析檔含「⚠️ 未確認規格清單」 | 有哪些輸入欄位？哪些必填？格式與長度限制？ |
+   | Input 規格缺失 | 分析檔「API I/O 物件」標 `source: not_found`，或含「⚠️ 未確認規格清單」 | 有哪些輸入欄位？哪些必填？格式與長度限制？ |
    | 欄位值域不明 | 代碼型欄位（如類別代碼、狀態碼）在分析檔「選填欄位值域」中無資料，或標注 ⚠️ 未找到 Caller | 這個欄位有哪些合法值？各代表什麼業務情境？ |
    | 必填性矛盾 | 需求文件與程式碼 annotation 對欄位必填性描述不一致 | 以哪邊為準？ |
    | Output 驗證點不明 | 不確定成功回應中哪些欄位是業務上必須驗證的（金額、狀態、編號等關鍵欄位） | 成功後應驗證哪些回傳欄位？各欄位的預期值或格式？ |
@@ -199,6 +199,10 @@ P4 收到 `user_clarifications` 時：
 ```
 
 此業務說明會被 P5 沿用至 Coverage Table 的「說明」欄，兩邊文字保持一致。
+
+**檔案寫入方式（降低長串流中斷風險）**：
+- requirement-spec.md **分段寫入**：先建立含 Metadata 與章節骨架的檔案，再逐章（Business Objectives → Scope → Key Business Rules → AC → OQ）以個別 edit 補入內容，**不要在單一回應中一次輸出整份文件**
+- 對話回應只輸出**短狀態**（如「Key Business Rules 完成，共 12 條」）與最終 Output JSON；**禁止在回應中複誦 spec 全文或大段內容**——內容只存在檔案裡
 
 > ❌ 不輸出：API Specifications 逐欄列表  
 > ❌ 不輸出：Technical Notes

@@ -215,7 +215,7 @@ function Get-ProgressLine($plan, [string]$currentStep) {
 # ---------- config parsing (same table format as p3-scan.ps1) ----------
 
 function Get-ConfigData([string]$Path) {
-    $data = [ordered]@{ config_found = $false; repo_paths = @() }
+    $data = [ordered]@{ config_found = $false; repo_paths = @(); has_protocol_table = $false; protocols = @() }
     if (-not (Test-Path $Path)) { return $data }
     $data.config_found = $true
     $content = Get-Content $Path -Raw -Encoding UTF8
@@ -227,6 +227,25 @@ function Get-ConfigData([string]$Path) {
                 lbsystem = $_.Groups[3].Value.Trim()
             }
         })
+
+    # Optional '## 系統協定設定' table: LBSystem | HeaderType | Header Helper | Response 類型 | 錯誤碼位置 | 說明
+    # Absent table = legacy config, all systems default to native CBK (no protocol flagging).
+    $protoSection = [regex]::Match($content, '##\s*系統協定設定[\s\S]*?(?=\r?\n##\s|\z)')
+    if ($protoSection.Success) {
+        $data.has_protocol_table = $true
+        $protoRows = [regex]::Matches($protoSection.Value, '(?m)^\|\s*([A-Za-z0-9_]+)\s*\|\s*([^|]+)\|\s*([^|]+)\|\s*([^|]+)\|\s*([^|]+)\|')
+        $data.protocols = @($protoRows | Where-Object {
+                $_.Groups[1].Value.Trim() -ne 'LBSystem' -and $_.Groups[2].Value.Trim() -notmatch '^-+$'
+            } | ForEach-Object {
+                [ordered]@{
+                    lbsystem      = $_.Groups[1].Value.Trim()
+                    header_type   = $_.Groups[2].Value.Trim()
+                    header_helper = $_.Groups[3].Value.Trim()
+                    response_type = $_.Groups[4].Value.Trim()
+                    error_field   = $_.Groups[5].Value.Trim()
+                }
+            })
+    }
     return $data
 }
 
@@ -459,7 +478,7 @@ switch ($Mode) {
         if (Test-Path $DevConfPath) { $devConfRaw = Get-Content $DevConfPath -Raw -Encoding UTF8 }
         $health = @()
         foreach ($t in $txcds) {
-            $entry = [ordered]@{ txCd = $t; status = ''; prefix = $null; path = $null; lbsystem = $null }
+            $entry = [ordered]@{ txCd = $t; status = ''; prefix = $null; path = $null; lbsystem = $null; header_type = $null }
             if (-not $config.config_found) {
                 $entry.status = 'config_missing'
             } else {
@@ -469,10 +488,19 @@ switch ($Mode) {
                     $entry.prefix = $matched.prefix
                     $entry.path = $matched.path
                     $entry.lbsystem = $matched.lbsystem
+                    $proto = $null
+                    if ($config.has_protocol_table -and -not [string]::IsNullOrWhiteSpace($matched.lbsystem)) {
+                        $proto = $config.protocols | Where-Object { $_.lbsystem -eq $matched.lbsystem } | Select-Object -First 1
+                    }
                     if (-not (Test-Path $matched.path)) { $entry.status = 'path_not_found' }
                     elseif ([string]::IsNullOrWhiteSpace($matched.lbsystem)) { $entry.status = 'lbsystem_not_configured' }
                     elseif ($devConfRaw -notmatch [regex]::Escape($matched.lbsystem)) { $entry.status = 'endpoint_not_configured' }
-                    else { $entry.status = 'ok' }
+                    elseif ($config.has_protocol_table -and $null -eq $proto) { $entry.status = 'protocol_not_configured' }
+                    else {
+                        $entry.status = 'ok'
+                        # No protocol table = legacy config, native CBK assumed.
+                        if ($null -ne $proto) { $entry.header_type = $proto.header_type } else { $entry.header_type = 'CBK' }
+                    }
                 }
             }
             $health += $entry
@@ -486,6 +514,7 @@ switch ($Mode) {
                 existing_features = $existingFeatures
                 existing_steps    = $existingSteps
                 path_health       = $health
+                protocols         = @($config.protocols)
                 capabilities      = (Get-CapabilityStatus)
                 can_setup         = $canSetup
             })
