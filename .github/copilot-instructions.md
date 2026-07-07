@@ -1,253 +1,220 @@
-# Communication Guidelines (溝通規範)
-- **Response Language**: 所有的對話回應、程式碼解釋、步驟說明，**必須**使用 **繁體中文 (Traditional Chinese)**。
-- **Code Comments**: 程式碼內的註解 (Comments) 若涉及複雜邏輯，請使用 **繁體中文**。
-- **Code Content**: 變數名稱、類別名稱、Gherkin 關鍵字仍維持 **英文**。
+# Cerberus Copilot Instructions
 
-# Project Overview
-本專案為 Java Spring Boot 應用，專注於自動化測試（Cucumber），使用 Maven 管理。
-核心測試架構位於 `src/test/java`，包含 Step Definitions, Request/Response Objects, Utilities 與 Configuration。
+> 本檔為 Cerberus 專案的全域 Copilot 規範。
+> Feature 細節規範請見 `.github/instructions/feature.instructions.md`，Java/Step 細節規範請見 `.github/instructions/stepCode.instructions.md`。
 
-# Code Style
-- **Java Style**: 遵循 Google Java Style。
-- **Indentation**: 4 個空白。
-- **Lombok**: 廣泛使用 `@Data`, `@Builder`, `@Getter`, `@Setter`, `@Slf4j`。
-- **Assertions**: 使用 `org.junit.Assert`。
-
-# Naming Conventions
-- **Class**: PascalCase (e.g., `CustomerStep`, `TransferFundsRequest`).
-- **Method/Variable**: camelCase (e.g., `doNIDOCR`, `cifData`).
-- **Constant**: UPPER_SNAKE_CASE (e.g., `CBK_CONFIG`).
-- **Test Files**: 結尾需為 `*Step.java` 或 `*Test.java`。
-
-# Project Structure & Key Classes
-Copilot 應優先參考以下結構與類別：
-
-```text
-src/test/java/com/yhao/
-├── step/                  # Step Definitions (繼承 CucumberBase)
-│   └── CucumberBase.java  # 所有 Step 的父類別，提供 context(), clientHelper 等核心方法
-├── requestBO/             # Request Body Objects (Lombok Builder)
-├── responseBO/            # Response Body Objects
-├── alias/                 # Enums (CBKServiceCode, ReviewCode, etc.)
-├── client/                # API Client 封裝 (ClientHelper)
-├── service/               # 業務邏輯 Helper (TwAccountHelper, DbHelper, DataTableHelper)
-├── util/                  # 工具類 (DateUtil, JsonUtil)
-├── CIFData.java           # 核心資料物件，用於在 Step 間傳遞客戶資訊
-├── Context.java           # 測試 Context，用於儲存 CIFData 與 Response
-└── CBKConfig.java         # 專案設定檔
-```
-
-# Core Development Guidelines (重要)
-
-## 1. Step Definition 撰寫規範
-- **繼承**: 所有 Step Class 必須繼承 `CucumberBase`。
-- **Context 使用**: 使用 `context()` 存取 `Context.CONTEXT`。
-  - 取得客戶資料: `CIFData cifData = context().get(name);`
-  - 儲存 Response: `context().setResponse(cbkResponse);`
-- **API 呼叫**: 使用 `clientHelper` (來自 `CucumberBase`) 發送請求。
-  - 範例: `clientHelper.post(endpoint, header, body);`
-- **資料處理**: 使用 `DataTableHelper.replaceParameter(dataTable, context())` 處理 Cucumber DataTable。
-
-## 2. Request Body 建構模式
-- **Helper Pattern**: 複雜的 Request Body 建構邏輯應抽取至 `service` package 下的 Helper 類別 (如 `TwAccountHelper`)。
-- **Builder**: 使用 Lombok `@Builder` 建構物件。
-- **範例**:
-  ```java
-  // 在 Step 中
-  TwNidOcr body = TwAccountHelper.getNidOcrBody(cifData);
-  ```
-
-## 3. 客戶資料管理 (CIFData)
-- `CIFData` 是測試流程中的核心物件，用於儲存客戶的 PII、帳號、狀態等。
-- 在 Step 中若需修改客戶屬性，應更新 `CIFData` 物件，以便後續 Step 使用。
-- 使用 `combineToCifData(name, map)` (來自 `CucumberBase`) 將 DataTable 資料合併入 `CIFData`。
-
-## 4. Enum 使用
-- 服務代碼: `com.yhao.alias.CBKServiceCode`
-- 系統代碼: `com.yhao.alias.LBSystem` (e.g., `LBSystem.MBK`)
-- 審核代碼: `com.yhao.alias.ReviewCode`
-
-## 5. 資料庫驗證
-- 使用 `DbHelper` 進行資料庫查詢與驗證。
-- 範例: `new DbHelper(DatasourceUtil.getCbkConn()).query(sql, params);`
-
-## 6. Response Validation (驗證模式)
-- **優先重用**: 優先使用 `CustomerStep` 中已定義的通用驗證 Step，避免重複撰寫。
-  - 驗證訊息代碼: `Then The response message code should be "{string}"`
-  - 驗證欄位內容: `And the response should be contain following fields`
-- 只有在需要特殊邏輯驗證時，才撰寫新的 `@Then` Step。
-
-# Cucumber Coding Style & Feature Format
-- **Feature Files**: `src/test/resources/features/*.feature`。
-- **Step Definitions**: `src/test/java/com/yhao/step/*Step.java`。
-- **Language Rules (語言規則)**:
-  - **Gherkin Keywords**: 必須使用 **英文** (e.g., `Feature`, `Background`, `Scenario`, `Given`, `When`, `Then`, `And`, `But`)。**禁止**使用中文關鍵字 (如 `功能`, `場景`)。
-  - **Step Description**: 必須使用 **英文** 描述業務行為 (PM voice)。
-  - **Data**: DataTable 內的測試資料 (如姓名、地址) 可以使用 **繁體中文**。
-- **Parameter Types**: 善用 `ParameterType` (如 `Approver`, `ReviewCode`) 簡化 Gherkin。
-
-## 🤖 Auto-Generation Triggers (自動生成觸發規則)
-當使用者提供以下結構的輸入時，請**自動**執行對應任務，無需額外指令：
-
-**Trigger 1: Create New Feature File**
-- **Keyword**: `**Create New Feature File**`
-- **Action**: 產生全新的 `.feature` 檔案，包含 Background 與 Scenario。
-
-**Trigger 2: Modify Existing Feature File**
-- **Keyword**: `**Modify Existing Feature File**`
-- **Action**: 讀取既有 Feature 檔案，保留原有 Scenario，僅**新增**或**修改**指定的 Scenario。
-
-**Trigger 3: New Feature Implementation**
-- **Keyword**: `**New Feature Implementation**`
-- **Action**: 依照順序實作：
-  1. Add Enum (`CBKServiceCode`).
-  2. Create RequestBO (Lombok).
-  3. Create **NEW Helper Class** (Static Factory Method).
-  4. Create Step Definition (Extend `CucumberBase`).
-
-**Trigger 4: Modify Existing Implementation**
-- **Keyword**: `**Modify Existing Implementation**`
-- **Action**: 更新既有 Java 類別 (RequestBO/Helper/Step)，確保不破壞現有測試 (Backward Compatibility)。
-
-**Trigger 5: Correction Needed**
-- **Keyword**: `🛑 **Correction Needed**`
-- **Action**: 強制重構程式碼以符合 `CucumberBase` 與 `Helper Pattern` 規範。
-
-## ⭐ Standard Feature File Example (黃金範本)
-Copilot 產生 Feature 檔案時，**必須嚴格遵守**以下格式與結構：
-
-```gherkin
-Feature: Modify shipping address for card reissue
-  As a Retail Banking Product Manager
-  I want customers to be able to update their card shipping address when requesting a card reissue
-
-  # Background 必須包含建立 Active TW account 的步驟
-  Background: Open Account
-    Given A Active TW account person call "Tester" with following fields
-      | custNm   | birthDay | gender |
-      | Cucumber | 19990101 | 1      |
-
-  # Scenario 必須包含清楚的 When (API 呼叫) 與 Then (結果驗證)
-  Scenario: Customer requests card replacement and updates shipping address
-    When The customer "Tester" requests card replacement and provides new shipping address with following fields
-      | addrHrcyCd | addrId          | zipCd | bsicAddrCont  | dtlAddrCont   | shpgAddrTpCd | ipAddr    |
-      | 07         | 000000000000063 | 302   | 新竹縣 竹北市   | 成功路 0 號    | 01           | 10.0.0.1  |
-    Then The response message code should be "LBNA000001"
-    And the response should be contain following fields
-      | messageId  |
-      | LBNA000001 |
-```
-
-# Java Implementation Examples
-
-## Step Definition Example
-```java
-@Slf4j
-public class IdentityStep extends CucumberBase {
-
-    @When("The people {string} do the NID OCR with following field")
-    public void doNidOcr(String name, DataTable dataTable) {
-        // 1. 準備資料
-        combineToCifData(name, dataTable.asMaps().get(0));
-        CIFData cifData = context().get(name);
-
-        // 2. 建構 Request Body (使用 Helper)
-        TwNidOcr body = TwAccountHelper.getNidOcrBody(cifData);
-
-        // 3. 準備 Header
-        CBKHeader header = CBKHeaderHelper.getDefault(CBKServiceCode.TW_ACCOUNT_OPEN_NID_OCR);
-
-        // 4. 發送請求
-        CBKResponse response = clientHelper.post(
-            CBK_CONFIG.getCbkEndpoints().get(LBSystem.MBK), 
-            header, 
-            body
-        );
-
-        // 5. 儲存結果
-        context().setResponse(response);
-    }
-}
-```
-
-## RequestBO Example
-```java
-@Builder
-@Getter
-@Setter
-public class TwNidOcr extends CBKRequestBody {
-    private String natlId;
-    private String custNm;
-    private EncPinCd encPinCd; // 巢狀物件
-}
-```
-# Data Specifications & Testing Standards (資料與測試規範)
-- **Date Format (日期格式)**:
-  - 所有日期欄位**必須**使用 `yyyymmdd` 格式 (String type)。
-  - ❌ Invalid: `2023-12-31`, `2023/12/31`, `Dec 31 2023`
-  - ✅ Valid: `20231231`
-- **Date Boundary Testing (日期邊界測試)**:
-  - 凡涉及日期運算或檢核的 Feature，**必須**包含邊界值 Scenario。
-  - **Mandatory Cases**:
-    1. **Year End/Start**: 驗證跨年邏輯 (e.g., `20231231` to `20240101`)。
-    2. **Month End/Start**: 驗證跨月邏輯。
-    3. **Leap Year**: 若涉及二月，需驗證閏年 (e.g., `20240229`)。
-    
-# Do's
-- 優先使用 `CucumberBase` 提供的 protected 方法 (e.g., `doNIDOCR`, `doReview`) 如果邏輯已存在。
-- 使用 `ReportUtil.addText()` 記錄關鍵測試資訊。
-- 使用 `JsonUtil` 處理 JSON 轉換。
-
-# Don'ts
-- 不要直接在 Step 中 `new` HttpClient，請使用 `clientHelper`。
-- 不要硬編碼環境設定，請使用 `CBK_CONFIG`。
-
-# Build / Test / Lint commands
-- Build (compile + package): mvn clean package
-- Run all tests: mvn test
-- Run a single test class: mvn -Dtest=ClassName test
-  - Example (run TestRunner): mvn -Dtest=TestRunner test
-- Run a single test method: mvn -Dtest=ClassName#methodName test
-- Run TestRunner with Cucumber tags: mvn -Dtest=TestRunner test -Dcucumber.filter.tags="@smoke"
-- Run a specific scenario by name: mvn -Dtest=TestRunner test -Dcucumber.options="--name \"Exact Scenario Name\""
-- Lint: 本專案未配置自動化 linter。建議使用 IDE 的 Checkstyle / SpotBugs 或在 CI 中新增相關插件。
-
-# High-level architecture (摘要)
-- Maven Java 專案，主體為 Cucumber BDD 測試套件。
-- 測試資源：src/test/resources/features/*.feature
-- 測試程式碼：src/test/java/com/yhao/**
-  - Step Definitions (通常位於 step/ 下)，皆繼承 CucumberBase，透過 context() 共享 CIFData 與回應。
-  - Request/Response BO 放在 requestBO/ / responseBO/，使用 Lombok (@Builder) 建構。
-  - client/ 包含 clientHelper，負責所有 HTTP 呼叫。
-  - service/ 放 Helper 類別（如 TwAccountHelper、DbHelper、DataTableHelper）以封裝建構 Request 與 DB 驗證邏輯。
-  - util/ 放 JsonUtil、DateUtil 等工具。
-- Test runner: surefire 配置只包含 **/TestRunner.java，故 TestRunner 為執行入口（請確保存在一個 TestRunner 類）。
-
-# Key repository conventions (重點慣例)
-- Step 類別必須繼承 CucumberBase 並使用 context() 取得/儲存 CIFData 與回應。
-- 複雜 Request 建構應放在 service helper；Step 只負責呼叫 helper 與 clientHelper。
-- RequestBO 使用 Lombok @Builder；所有日期欄位皆為 "yyyymmdd" 字串。
-- Test class 命名需以 *Step.java 或 *Test.java 結尾；Cucumber feature 與 Gherkin 關鍵字必須為英文。
-- 使用 DataTableHelper.replaceParameter 處理 DataTable 參數化。
-- 使用 DbHelper + DatasourceUtil.getCbkConn() 進行資料庫驗證。
-
-# Notes about existing AI-agent configs
-- 本專案包含 .github/agents/*.agent.md 與 prompt.md，已定義 tester/reviewer 行為與回應語言（繁體中文）。Copilot 應遵循這些規範。
+## 溝通規範
+- 回應使用 **繁體中文**
+- 複雜邏輯註解使用 **繁體中文**
+- 代碼內容保持 **英文** (變數名、類別名、Gherkin 關鍵字)
+- Feature/Scenario 描述與步驟文字需使用**銀行業務可理解用詞**，避免技術術語
 
 ---
 
-若要我直接將上述變更寫入檔案（已完成）或進一步把執行範例補入 CI workflow，請告知是否要新增 MCP server（例如為 Playwright/瀏覽器測試設定）。
+## 專案結構
+```text
+src/test/java/com/
+├── step/          # Step Definitions (繼承 CucumberBase)
+├── requestBO/     # Request Body Objects
+├── responseBO/    # Response Body Objects
+├── alias/         # Enums
+├── client/        # API Client
+├── service/       # 業務邏輯 Helper
+├── util/          # 工具類
+├── CIFData.java   # 核心資料物件
+├── Context.java   # 測試 Context
+└── CBKConfig.java # 專案設定
+```
 
-# Suggested improvements applied
-- 明確列出 Maven 與 Java 版本：Java 11 (maven.compiler.source/target), cucumber 7.14.0, junit 4.13.2（見 pom.xml）。
-- 提醒 surefire 目前只包含 **/TestRunner.java**（若要執行其他測試，請用 -Dtest 或調整 surefire includes）。
-- 加入常用命令範例：
-  - Build: mvn clean package
-  - Run all tests: mvn test
-  - Run TestRunner: mvn -Dtest=TestRunner test
-  - Run single test method: mvn -Dtest=TestRunner#methodName test
-  - Run scenario by name: mvn -Dtest=TestRunner test -Dcucumber.options="--name \"Exact Scenario Name\""
-- 明確指出 feature 檔位置：src/test/resources/features/
-- 保留並遵循 .github/agents/*.agent.md 與 prompt.md 中的規範（回應使用繁體中文）。
+### 核心 Enum
+- `com.yhao.alias.CBKServiceCode` - 服務代碼
+- `com.yhao.alias.LBSystem` - 系統代碼
+- `com.yhao.alias.ReviewCode` - 審核代碼
 
-若需把這些建議再調整進更詳細的段落或加入 CI 範例，請告知要怎麼調整。
+---
+
+## Service Code 規範
+
+這是跨 Feature 與 Step 層的核心約束，所有開發活動都必須遵守。
+
+- `Feature` 層以業務流程描述為主，原則上**不在 Scenario 文字中直接呈現** `Service Code`、`LBSystem`
+- 測試需求、開發 prompt 與 Step 實作層，應**明確指出並綁定**對應的 `Service Code`
+- 若同一業務流程可能對應多個服務，需標明本次驗證的**主要 `Service Code`**
+- 若未提供 `Service Code`，需先確認服務範圍，再撰寫 Step 或 Helper，避免案例目標模糊
+- 若需跨系統驗證，應於需求/Step 層一併標明對應的 `LBSystem`
+- 若為**新增 Step**且同時導入**新的 Service Code**，需求/Prompt 必須提供：
+  - **Input 欄位**（必要參數、格式、邊界條件）
+  - **預期 Output 欄位**（回應碼、關鍵欄位、狀態/業務結果）
+- 若 Step 實作結果與既有 Feature 敘述不一致，需**同步調整 Feature 內容**，確保案例敘述與實作行為一致
+
+### Feature 前置假設與環境要求
+
+**應在 Feature 標題下方的註釋中明確說明**：
+- **環境要求**：本地開發環境 / 測試環境 / 預發佈環境
+- **帳戶前置**：需要什麼狀態的帳戶（TW account, KYC approved, Active status 等）
+- **時間限制**：是否有營業時間限制（如 EOD 流程、日切時間）
+- **Service Code**：指定的服務代碼
+
+```gherkin
+Feature: Deposit Money into Main Account
+  # 環境要求: MBK System only (LBSystem: MBK)
+  # 帳戶前置: 已激活的 TW 帳戶，須通過 KYC，帳戶狀態為 ACTIVE
+  # 時間限制: 須在營業時間內 (09:00-17:00)
+  # Service Code: SZDPF023011
+```
+
+---
+
+## 通路範圍限制
+- 本專案測試案例僅針對**單一通道**流程
+- 撰寫 Feature/Scenario 時，不需額外延伸或推導其他通路情境
+- 不納入 ATM、臨櫃存款等非本專案範圍之通路案例
+
+---
+
+## 🔗 跨服務場景處理規範
+
+### 多個 Service Code 在同一 Feature 的協調
+
+**原則**：
+- Feature 只表達業務流程，不呈現技術性的服務代碼
+- 若涉及多個服務（如開戶 = QRY + CREATE + VERIFY），Feature 層描述業務流程，Step 層綁定每一步的 Service Code
+- Background 或 Scenario 註釋中應標明服務執行序列（便於維護者理解）
+
+**✅ 正確範例**：
+```gherkin
+Feature: Account Opening Complete Flow
+  # 服務序列: 
+  #   1. QRY_CUST_EXIST (查詢客戶是否存在)
+  #   2. CREATE_ACCOUNT (建立賬戶)
+  #   3. VERIFY_KYC (驗證 KYC)
+  # Service Code Mapping 見 Step 層 AccountOpeningStep.java
+
+  Background: Setup customer data
+    Given a new customer "John" with NID "A123456789"
+    # 此步驟觸發 QRY_CUST_EXIST
+
+  Scenario: Complete account opening with KYC verification
+    When customer "John" submits account opening request with KYC documents
+    # Step 內觸發:
+    #   - CREATE_ACCOUNT (Service Code: SZDPF001001)
+    #   - VERIFY_KYC (Service Code: KYC_VERIFY_001)
+    Then account opening request should be successful
+    And the account status should be "ACTIVE"
+```
+
+**Step 層必須明確綁定 Service Code**：
+```java
+@When("customer {string} submits account opening request with KYC documents")
+public void submitAccountOpening(String custName) {
+    // 第一步：CREATE_ACCOUNT (Service Code: SZDPF001001)
+    CBKHeader header1 = CBKHeaderHelper.getDefault(CBKServiceCode.CREATE_ACCOUNT);
+    CBKResponse resp1 = clientHelper.post(endpoint, header1, createAccountBody);
+    
+    // 第二步：VERIFY_KYC (Service Code: KYC_VERIFY_001)
+    CBKHeader header2 = CBKHeaderHelper.getDefault(CBKServiceCode.KYC_VERIFY);
+    CBKResponse resp2 = clientHelper.post(endpoint, header2, verifyKYCBody);
+    
+    context().put("accountOpeningResponse", resp1);
+    context().put("kycVerifyResponse", resp2);
+}
+```
+
+### 跨服務場景驗證要點
+
+1. **服務執行順序驗證**：確認服務必須按正確順序執行（例如，不能先 VERIFY_KYC 再 CREATE_ACCOUNT）
+2. **服務間資料流驗證**：第一個服務的輸出是否正確傳遞給第二個服務
+3. **部分失敗處理**：如果第一個服務成功、第二個失敗，系統是否有正確的回滾邏輯
+4. **跨服務 message code**：驗證最終回應的 message code 是否反映整個流程的結果
+5. **Service Code 綁定正確性**：確認每一步的 Service Code 是否與業務需求一致
+
+**跨服務場景避免混亂的檢查清單**：
+- [ ] Feature 描述是否清晰（不含技術服務代碼）
+- [ ] Background / Scenario 註釋中是否標明服務序列
+- [ ] 每個 Service Code 是否在 Step 層明確綁定
+- [ ] 是否驗證了服務間的資料傳遞正確性
+- [ ] 是否驗證了失敗情況下的系統行為
+- [ ] 所有涉及的 Service Code 是否都有對應的 Step 實作
+
+---
+
+## 驗證重點
+
+### 通用驗證準則
+- **服務識別驗證**:
+  - 確認需求或 Step 對應的 `Service Code` 是否明確
+  - 確認案例是否驗證到正確的服務流程，而非相似功能
+  - `Feature` 文字以業務語意呈現，服務代碼驗證放在 Step/執行流程層
+
+- **Input 驗證**:
+  - Null 值測試
+  - 空值測試
+  - 特殊字符/編碼測試
+  - 類型轉換驗證
+  
+- **Output 驗證**:
+  - 返回值正確性
+  - 返回值類型匹配
+  - 返回值格式規範 (日期格式、金額小數位等)
+  - 返回值是否為 null/empty
+  
+- **業務邏輯驗證**:
+  - 前置條件檢查
+  - 後置條件驗證
+  - 狀態轉換合法性
+  - 金額計算精度 (6位小數位等)
+
+### 日期與年份驗證
+- 驗證年份格式: 確保 YYYY/yyyy 一致性，特別是跨年份邊界情況
+- 跨年份邊界: 須驗證12月31日 → 1月1日的轉換邏輯
+- 跨月邊界: 驗證各月最後一日的邊界情況 (如28/29/30/31)
+- 時間邊界: 測試 23:59:59 → 00:00:00 的轉換
+
+### 跨年度常見案例 
+- **交易日切換**: 驗證 12/31 → 1/1 的 Business Date 與營業日順延
+- **利息與費用**: 驗證跨年計息、結息、年費/管理費扣收正確性
+- **額度重置**: 驗證日/月/年限額在新年度是否正確重置
+- **參數生效**: 驗證新年度費率、限額、規則於生效日正確套用
+
+### 數據邊界驗證
+- **最小值測試**: 邊界下限 (如 0, null, 空字符串)
+- **最大值測試**: 邊界上限 (如整數最大值、字符串長度上限)
+- **數值範圍**: 確認有效範圍內外的行為 (如金額 0.00 vs 999999.99)
+- **字符串邊界**: 
+  - 空字符串 `""`
+  - 單個字符 `"a"`
+  - 特殊字符 (空格、特殊符號、Unicode)
+  - 長度邊界值 (如恰好達到上限)
+- **集合邊界**:
+  - 空列表 (size = 0)
+  - 單元素列表 (size = 1)
+  - 最大容量邊界
+
+
+
+
+## 重要注意事項
+
+
+### 時間相關
+- ⚠️ 測試涉及當前時間時，必須使用 `System.currentTimeMillis()` 或系統時鐘，勿使用硬編碼日期
+- ⚠️ 跨時區測試須確認時區處理邏輯正確
+
+
+### 資料完整性
+- ⚠️ 驗證所有必填欄位實際被填充
+- ⚠️ 檢查資料庫中資料完整性，不依賴前端驗證
+- ⚠️ 測試資料刪除和軟刪除邏輯
+
+### 狀態管理
+- ⚠️ 驗證不合法的狀態轉換被拒絕
+- ⚠️ 測試並發修改同一資源的行為
+- ⚠️ 驗證幂等性，同一請求多次執行結果一致
+
+
+### 測試維護
+- ⚠️ 定期檢查測試資料的有效性
+- ⚠️ 避免測試間的隱性依賴 (確保測試獨立)
+- ⚠️ 清理測試環境 (teardown 務必執行)
+- ⚠️ 記錄易失敗的場景與原因，建立 FAQ
+
