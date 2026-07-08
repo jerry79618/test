@@ -171,6 +171,20 @@ locate 回傳 `SourceNotFound` → 依鐵律 2/5 處理，不中斷流程。
 
 整理成分析檔的「前置狀態」表格（見 Step 3 模板）。只反推有程式碼證據的項目，不推測；同一前置多處檢查只記一次。
 
+**2-6 DB 存取分析（DAO 層在獨立 repo，dbio 定義類似 MyBatis）**
+
+Step 2 閱讀 Service 原始碼時，**記下所有 DAO / dbio 呼叫點**（dbio id 字串、DAO 方法名——客製框架的呼叫樣式由你語意辨識，不靠固定 pattern），然後交給腳本解析：
+
+```powershell
+.\.github\scripts\p3-scan.ps1 -Mode dbio -Keywords <dbioId或DAO方法名>,...
+```
+
+腳本從 config.md `## DAO 設定` 的路徑找出 dbio 檔，抽取 SQL 並回傳每張 table 與操作類型（R/W）。依回傳整理成分析檔「DB 存取」表格，並把 Preconditions 表的「資料位置」欄對應到 table.欄位（可對應時才填，不猜）。
+
+- 回傳 `DaoPathNotConfigured` → 分析檔標注「⚠️ DAO repo 未設定（config.md ## DAO 設定），DB 存取未分析」，**不阻擋流程**
+- 回傳 `DbioNotFound` → 記錄找不到的 dbio id，標 ⚠️（可能 DAO repo 版本不符）
+- 此表供下游使用：P4 判斷 AC 能否用 DB 驗證、測試資料探勘知道去哪張表找前置資料
+
 ---
 
 ### Step 2-0 — API I/O 物件萃取（`txCd_list` 非空或 Discovery 路徑時）
@@ -300,9 +314,14 @@ locate 回傳 `SourceNotFound` → 依鐵律 2/5 處理，不中斷流程。
 |---|---------|---------|--------|
 
 ### 前置狀態（Preconditions，供 P4 可行性預審）
-| # | 前置狀態 | 依據（程式碼證據） | 來源 |
-|---|---------|------------------|------|
-| PC1 | 客戶必須先存在 | `if (cust == null) throw AAPATE0008` | XxxSvc.java:162 |
+| # | 前置狀態 | 依據（程式碼證據） | 資料位置 | 來源 |
+|---|---------|------------------|---------|------|
+| PC1 | 客戶必須先存在 | `if (cust == null) throw AAPATE0008` | CUST_INFO.CUST_ID | XxxSvc.java:162 |
+
+### DB 存取（供 DB 驗證與測試資料探勘）
+| Table | 操作 | 依據（dbio id / DAO 方法） | 來源 |
+|-------|------|--------------------------|------|
+| ACCT_MASTER | W | CU01G001.updateAcctStatus | CuAcctDbio.xml |
 
 ---
 

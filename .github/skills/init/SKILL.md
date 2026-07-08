@@ -87,6 +87,11 @@ ask_user(
   格式：<交易代碼前綴> → <本機路徑> → <LBSystem>
   例如：SZCU → D:\git\lbtwcbcbk_zcusvc\ZCUSvc\src → CBK
   
+  另外，DAO 層（dbio 定義）如果在獨立的 repo，也請提供：
+  - DAO repo 的本機路徑
+  - dbio 檔案的類型（例如 *.xml）
+  這能讓程式碼分析追出每支服務讀寫哪些 table，供 DB 驗證與測試資料探勘使用。沒有或不確定可跳過。
+  
   若尚未 clone，路徑可先填空白，之後手動補充。",
   allow_freeform: true
 )
@@ -238,6 +243,14 @@ ask_user(
 ```
 
 > 此表是 P6 選擇 Header/Client 的依據；gate-p2 會檢查每個 txCd 的 LBSystem 是否在表內（缺列 → `protocol_not_configured`，BP-P2 要求補件）。**舊 config.md 沒有此表時，一律視為原生 CBK**（相容既有行為）。
+
+若使用者提供了 DAO repo，追加 `## DAO 設定` 區塊（P3 的 dbio 掃描依據；沒提供就不寫，P3 會標注 DB 存取未分析）：
+
+```markdown
+## DAO 設定
+- 路徑: `<DAO repo 本機路徑>`
+- dbio Pattern: `*.xml`
+```
 
 #### `src/test/resources/dev.conf`
 

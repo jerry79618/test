@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   P3 code-analysis deterministic scanner. Outputs JSON to stdout.
 
@@ -29,7 +29,7 @@
 #>
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('config', 'discovery', 'locate', 'analyze', 'callers', 'grep')]
+    [ValidateSet('config', 'discovery', 'locate', 'analyze', 'callers', 'grep', 'dbio')]
     [string]$Mode,
 
     [string]$ConfigPath = '.cucb/config.md',
@@ -74,10 +74,25 @@ function Get-ConfigData([string]$Path) {
         repo_paths       = @()
         txcd_patterns    = @()
         combined_pattern = $FallbackTxCdPattern
+        dao_path         = ''
+        dbio_glob        = @()
     }
     if (-not (Test-Path $Path)) { return $data }
     $data.config_found = $true
     $content = Get-Content $Path -Raw -Encoding UTF8
+
+    # Optional '## DAO 設定' section (DAO layer lives in a separate repo):
+    #   - 路徑: `D:\git\dao\src`
+    #   - dbio Pattern: `*.xml, *.dbio`
+    $daoSection = [regex]::Match($content, '##\s*DAO 設定[\s\S]*?(?=\r?\n##\s|\z)')
+    if ($daoSection.Success) {
+        $pm = [regex]::Match($daoSection.Value, '-\s*路徑:\s*`?([^`\r\n]+?)`?\s*$', 'Multiline')
+        if ($pm.Success) { $data.dao_path = $pm.Groups[1].Value.Trim() }
+        $gm = [regex]::Match($daoSection.Value, '-\s*dbio Pattern:\s*`?([^`\r\n]+?)`?\s*$', 'Multiline')
+        if ($gm.Success) {
+            $data.dbio_glob = @($gm.Groups[1].Value.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+        }
+    }
 
     # Repo path table rows: | `SZCU*` | `D:\path` | CBK | desc |
     $rowMatches = [regex]::Matches($content, '\|\s*`([A-Z]+\*)`\s*\|\s*`?([^`|]+?)`?\s*\|\s*([^|]*)\|')
@@ -253,6 +268,59 @@ switch ($Mode) {
                 src_path = $SrcPath
                 status   = if ($paths.Count -gt 0) { 'Found' } else { 'SourceNotFound' }
                 files    = $paths
+            })
+        break
+    }
+
+    'dbio' {
+        # Resolve dbio definition files in the DAO repo and extract SQL table access.
+        # -Keywords: dbio ids / DAO method names the service code references (from P3's reading).
+        # -ScanPaths overrides config.md '## DAO 設定' path; -Pattern overrides dbio glob (comma-separated).
+        if ($Keywords.Count -eq 0) {
+            Out-Json ([ordered]@{ error = 'dbio mode requires -Keywords (dbio ids or DAO method names)' }); break
+        }
+        $config = Get-ConfigData $ConfigPath
+        $daoPaths = if ($ScanPaths.Count -gt 0) { $ScanPaths } elseif ($config.dao_path) { @($config.dao_path) } else { @() }
+        $daoPaths = @($daoPaths | Where-Object { $_ -and (Test-Path $_) })
+        if ($daoPaths.Count -eq 0) {
+            Out-Json ([ordered]@{ status = 'DaoPathNotConfigured'; files = @(); note = 'config.md 缺 ## DAO 設定，或路徑不存在' }); break
+        }
+        $globs = if ($Pattern) { @($Pattern.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
+        elseif ($config.dbio_glob.Count -gt 0) { $config.dbio_glob }
+        else { @('*.xml', '*.dbio', '*.sql') }
+
+        $candidateFiles = @()
+        foreach ($p in $daoPaths) {
+            foreach ($g in $globs) {
+                $candidateFiles += Get-ChildItem -Path $p -Recurse -Filter $g -File -ErrorAction SilentlyContinue
+            }
+        }
+        $candidateFiles = @($candidateFiles | Sort-Object -Property FullName -Unique)
+
+        $tableRegex = '(?i)\b(?:FROM|JOIN|INSERT\s+INTO|UPDATE|DELETE\s+FROM|MERGE\s+INTO)\s+([A-Za-z_][\w.$#]*)'
+        $writeRegex = '(?i)\b(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM|MERGE\s+INTO)\s+([A-Za-z_][\w.$#]*)'
+        $results = @()
+        foreach ($kw in $Keywords) {
+            $hits = $candidateFiles | Select-String -Pattern ([regex]::Escape($kw)) -List -ErrorAction SilentlyContinue
+            foreach ($h in $hits) {
+                $raw = Get-Content $h.Path -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
+                if ($null -eq $raw) { $raw = '' }
+                $writeTables = @([regex]::Matches($raw, $writeRegex) | ForEach-Object { $_.Groups[1].Value.ToUpper() } | Sort-Object -Unique)
+                $allTables = @([regex]::Matches($raw, $tableRegex) | ForEach-Object { $_.Groups[1].Value.ToUpper() } |
+                        Where-Object { $_ -notmatch '^(SELECT|DUAL|WHERE|SET)$' } | Sort-Object -Unique)
+                $tables = @($allTables | ForEach-Object {
+                        $op = 'R'
+                        if ($writeTables -contains $_) { $op = 'W' }
+                        [ordered]@{ table = $_; op = $op }
+                    })
+                $results += [ordered]@{ keyword = $kw; file = $h.Path; tables = $tables }
+            }
+        }
+        Out-Json ([ordered]@{
+                status         = if ($results.Count -gt 0) { 'Found' } else { 'DbioNotFound' }
+                searched_paths = $daoPaths
+                globs          = $globs
+                results        = $results
             })
         break
     }
