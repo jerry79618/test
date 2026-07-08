@@ -42,6 +42,7 @@ param(
     [string]$ClassName = '',
     [string]$ExcludeFile = '',
     [string]$Pattern = '',
+    [string]$LBSystem = '',
     [switch]$CaseSensitive,
     [switch]$IncludeTests
 )
@@ -74,23 +75,35 @@ function Get-ConfigData([string]$Path) {
         repo_paths       = @()
         txcd_patterns    = @()
         combined_pattern = $FallbackTxCdPattern
-        dao_path         = ''
-        dbio_glob        = @()
+        dao_entries      = @()
     }
     if (-not (Test-Path $Path)) { return $data }
     $data.config_found = $true
     $content = Get-Content $Path -Raw -Encoding UTF8
 
-    # Optional '## DAO 設定' section (DAO layer lives in a separate repo):
-    #   - 路徑: `D:\git\dao\src`
-    #   - dbio Pattern: `*.xml, *.dbio`
+    # Optional '## DAO 設定' section. DAO mechanism differs per system, so rows are
+    # keyed by LBSystem:  | CBK | `D:\git\dao\src` | `*.xml` | dbio 定義 |
+    # Legacy bullet form (路徑:/dbio Pattern:) is read as the CBK entry.
     $daoSection = [regex]::Match($content, '##\s*DAO 設定[\s\S]*?(?=\r?\n##\s|\z)')
     if ($daoSection.Success) {
-        $pm = [regex]::Match($daoSection.Value, '-\s*路徑:\s*`?([^`\r\n]+?)`?\s*$', 'Multiline')
-        if ($pm.Success) { $data.dao_path = $pm.Groups[1].Value.Trim() }
-        $gm = [regex]::Match($daoSection.Value, '-\s*dbio Pattern:\s*`?([^`\r\n]+?)`?\s*$', 'Multiline')
-        if ($gm.Success) {
-            $data.dbio_glob = @($gm.Groups[1].Value.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+        $daoRows = [regex]::Matches($daoSection.Value, '(?m)^\|\s*([A-Za-z0-9_]+)\s*\|\s*`?([^`|]*?)`?\s*\|\s*`?([^`|]*?)`?\s*\|')
+        $data.dao_entries = @($daoRows | Where-Object {
+                $_.Groups[1].Value.Trim() -ne 'LBSystem' -and $_.Groups[2].Value.Trim() -notmatch '^-+$'
+            } | ForEach-Object {
+                [ordered]@{
+                    lbsystem = $_.Groups[1].Value.Trim()
+                    path     = $_.Groups[2].Value.Trim()
+                    glob     = @($_.Groups[3].Value.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+                }
+            })
+        if ($data.dao_entries.Count -eq 0) {
+            $pm = [regex]::Match($daoSection.Value, '-\s*路徑:\s*`?([^`\r\n]+?)`?\s*$', 'Multiline')
+            $gm = [regex]::Match($daoSection.Value, '-\s*dbio Pattern:\s*`?([^`\r\n]+?)`?\s*$', 'Multiline')
+            if ($pm.Success) {
+                $legacyGlob = @()
+                if ($gm.Success) { $legacyGlob = @($gm.Groups[1].Value.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
+                $data.dao_entries = @([ordered]@{ lbsystem = 'CBK'; path = $pm.Groups[1].Value.Trim(); glob = $legacyGlob })
+            }
         }
     }
 
@@ -280,13 +293,20 @@ switch ($Mode) {
             Out-Json ([ordered]@{ error = 'dbio mode requires -Keywords (dbio ids or DAO method names)' }); break
         }
         $config = Get-ConfigData $ConfigPath
-        $daoPaths = if ($ScanPaths.Count -gt 0) { $ScanPaths } elseif ($config.dao_path) { @($config.dao_path) } else { @() }
+        $sys = if ($LBSystem) { $LBSystem } else { 'CBK' }
+        $daoEntry = $config.dao_entries | Where-Object { $_.lbsystem -eq $sys } | Select-Object -First 1
+        $daoPaths = if ($ScanPaths.Count -gt 0) { $ScanPaths } elseif ($null -ne $daoEntry -and $daoEntry.path) { @($daoEntry.path) } else { @() }
         $daoPaths = @($daoPaths | Where-Object { $_ -and (Test-Path $_) })
         if ($daoPaths.Count -eq 0) {
-            Out-Json ([ordered]@{ status = 'DaoPathNotConfigured'; files = @(); note = 'config.md 缺 ## DAO 設定，或路徑不存在' }); break
+            Out-Json ([ordered]@{
+                    status   = 'DaoPathNotConfigured'
+                    lbsystem = $sys
+                    files    = @()
+                    note     = "config.md ## DAO 設定 無 $sys 的可用路徑（該系統 DAO 機制未設定或路徑不存在）"
+                }); break
         }
         $globs = if ($Pattern) { @($Pattern.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
-        elseif ($config.dbio_glob.Count -gt 0) { $config.dbio_glob }
+        elseif ($null -ne $daoEntry -and $daoEntry.glob.Count -gt 0) { $daoEntry.glob }
         else { @('*.xml', '*.dbio', '*.sql') }
 
         $candidateFiles = @()

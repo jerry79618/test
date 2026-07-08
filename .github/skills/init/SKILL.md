@@ -87,10 +87,11 @@ ask_user(
   格式：<交易代碼前綴> → <本機路徑> → <LBSystem>
   例如：SZCU → D:\git\lbtwcbcbk_zcusvc\ZCUSvc\src → CBK
   
-  另外，DAO 層（dbio 定義）如果在獨立的 repo，也請提供：
-  - DAO repo 的本機路徑
-  - dbio 檔案的類型（例如 *.xml）
-  這能讓程式碼分析追出每支服務讀寫哪些 table，供 DB 驗證與測試資料探勘使用。沒有或不確定可跳過。
+  另外，DAO 層如果在獨立的 repo，也請提供（**依系統分別回答**，各系統的資料存取機制可能不同）：
+  - 哪個系統（LBSystem）？例如 CBK 用 dbio（類 MyBatis）
+  - 該系統 DAO repo 的本機路徑
+  - 定義檔的類型（例如 *.xml）
+  這能讓程式碼分析追出每支服務讀寫哪些 table，供 DB 驗證與測試資料探勘使用。不確定的系統可跳過或說「待確認」。
   
   若尚未 clone，路徑可先填空白，之後手動補充。",
   allow_freeform: true
@@ -244,12 +245,13 @@ ask_user(
 
 > 此表是 P6 選擇 Header/Client 的依據；gate-p2 會檢查每個 txCd 的 LBSystem 是否在表內（缺列 → `protocol_not_configured`，BP-P2 要求補件）。**舊 config.md 沒有此表時，一律視為原生 CBK**（相容既有行為）。
 
-若使用者提供了 DAO repo，追加 `## DAO 設定` 區塊（P3 的 dbio 掃描依據；沒提供就不寫，P3 會標注 DB 存取未分析）：
+若使用者提供了 DAO repo，追加 `## DAO 設定` 表格（P3 的 dbio 掃描依據，**以 LBSystem 為 key**——各系統資料存取機制不同，只登記已確認的；沒提供或待確認的系統不寫列，P3 會對該系統標注 DB 存取未分析）：
 
 ```markdown
 ## DAO 設定
-- 路徑: `<DAO repo 本機路徑>`
-- dbio Pattern: `*.xml`
+| LBSystem | DAO repo 路徑 | 定義檔 Pattern | 說明 |
+|----------|--------------|---------------|------|
+| CBK      | `<本機路徑>` | `*.xml`       | dbio 定義（類 MyBatis） |
 ```
 
 #### `src/test/resources/dev.conf`
