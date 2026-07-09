@@ -86,6 +86,8 @@ model: claude-sonnet-4.6
 
 context：`{ txCd_list: [{txCd, category}], source_paths, related_features, related_steps }`；Discovery 時加 `discovery_mode: true, scan_paths, service_class_hint`。
 
+> **多 txCd 必須逐一呼叫**：每次 P3 呼叫只傳**一個** txCd，跑完收 `code_analysis_paths` 再呼叫下一個。P3 分析會大量讀檔，單一 session 塞多個 txCd 會讓請求無限膨脹（長串流中斷的主因）。各次結果彙整後一起記入 plan。
+
 回傳處置：
 - `code_analysis_paths` 經 verify 後記入 `plan-update -Files`；為空時檢查 `.cucb/code-analysis/<txCd>-analysis.md` 既有檔回退（通知標注「使用既有分析」）
 - 有 `blocked_reason` / `ServiceClassNotFound` / `LocalPathNotConfigured` / `SourceNotFound` 且無既有分析 → **BP-2**
